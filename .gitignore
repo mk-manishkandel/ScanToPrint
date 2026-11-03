@@ -1,0 +1,29 @@
+# Build output
+/target/
+node_modules/
+/web/dist/
+src-tauri/gen/schemas/
+
+# Bundled third-party binaries (downloaded + checksum-verified by scripts/fetch-sumatra.*)
+src-tauri/binaries/*.exe
+src-tauri/binaries/*.zip
+
+# Local data when running the dev server
+/data/
+
+# SECRETS — never commit
+*.key
+*.key.pub.bak
+*.pfx
+*.p12
+.env
+.env.*
+*.password
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.tsbuildinfo

@@ -1,0 +1,14 @@
+{
+  "bundle": {
+    "externalBin": ["binaries/SumatraPDF"],
+    "resources": { "binaries/SumatraPDF-LICENSE.txt": "SumatraPDF-LICENSE.txt" },
+    "windows": {
+      "webviewInstallMode": { "type": "downloadBootstrapper" },
+      "nsis": {
+        "installMode": "perMachine",
+        "installerHooks": "./windows/hooks.nsh",
+        "displayLanguageSelector": false
+      }
+    }
+  }
+}

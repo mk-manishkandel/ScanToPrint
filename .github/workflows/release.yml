@@ -1,0 +1,60 @@
+name: Release
+
+# Push a signed tag (git tag -s v1.2.3 && git push origin v1.2.3) to build a DRAFT release.
+# Test the installer from the draft, then click "Publish" — only then do shops get the update.
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Rust (version from rust-toolchain.toml)
+        run: rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Tag matches app version
+        run: node scripts/check-versions.mjs ${{ github.ref_name }}
+
+      - name: Signing secrets present
+        shell: bash
+        env:
+          KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          PW: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          [ -n "$KEY" ] || { echo "::error::TAURI_SIGNING_PRIVATE_KEY secret missing"; exit 1; }
+          [ -n "$PW" ]  || { echo "::error::TAURI_SIGNING_PRIVATE_KEY_PASSWORD secret missing"; exit 1; }
+
+      - run: npm ci
+
+      - name: Fetch SumatraPDF sidecar
+        shell: pwsh
+        run: ./scripts/fetch-sumatra.ps1
+
+      - name: Build, sign updates, create draft release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: ScanToPrint ${{ github.ref_name }}
+          releaseBody: |
+            Download **ScanToPrint_*_x64-setup.exe** below and run it on the shop PC.
+            Already installed? The app updates itself — no download needed.
+          releaseDraft: true
+          prerelease: false
+          includeUpdaterJson: true

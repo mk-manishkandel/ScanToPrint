@@ -1,0 +1,21 @@
+{
+  "name": "scantoprint",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "web"
+  ],
+  "scripts": {
+    "tauri": "tauri",
+    "web:dev": "npm run dev --workspace web",
+    "web:build": "npm run build --workspace web",
+    "check-versions": "node scripts/check-versions.mjs"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.4"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "fsevents": false
+  }
+}
