@@ -6,6 +6,12 @@ import Login from "./Login";
 import Setup from "./Setup";
 import SettingsPage from "./SettingsPage";
 import Users from "./Users";
+import Queue from "./Queue";
+import JobDetail from "./JobDetail";
+import Printers from "./Printers";
+import History from "./History";
+import QrPoster from "./QrPoster";
+import UpdateBanner from "./UpdateBanner";
 
 interface AuthCtx {
   user: User;
@@ -72,7 +78,7 @@ function Shell() {
   ];
   return (
     <div className="flex min-h-screen">
-      <aside className="flex w-56 shrink-0 flex-col bg-slate-900 text-slate-200">
+      <aside className="flex w-56 print:hidden shrink-0 flex-col bg-slate-900 text-slate-200">
         <div className="px-5 py-5 text-lg font-bold text-white">ScanToPrint</div>
         <nav className="flex-1 space-y-1 px-3">
           {links.map((l) => (
@@ -96,14 +102,17 @@ function Shell() {
           </Button>
         </div>
       </aside>
-      <main className="min-w-0 flex-1 p-6">
+      <div className="min-w-0 flex-1">
+      <UpdateBanner isOwner={user.role === "owner"} />
+      <main className="p-6 print:p-0">
         <Routes>
-          <Route index element={<Soon title="Print queue" />} />
-          <Route path="history" element={<Soon title="History" />} />
-          <Route path="qr" element={<Soon title="QR poster" />} />
+          <Route index element={<Queue />} />
+          <Route path="jobs/:id" element={<JobDetail />} />
+          <Route path="history" element={<History />} />
+          <Route path="qr" element={<QrPoster />} />
           {user.role === "owner" && (
             <>
-              <Route path="printers" element={<Soon title="Printers" />} />
+              <Route path="printers" element={<Printers />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="staff" element={<Users />} />
             </>
@@ -111,15 +120,7 @@ function Shell() {
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Routes>
       </main>
-    </div>
-  );
-}
-
-function Soon({ title }: { title: string }) {
-  return (
-    <div>
-      <h1 className="text-2xl font-bold">{title}</h1>
-      <p className="mt-2 text-slate-500">Coming in the next build phase.</p>
+      </div>
     </div>
   );
 }

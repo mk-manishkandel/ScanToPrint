@@ -2,9 +2,12 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod tray;
+mod updater;
 
+use std::sync::Arc;
 use std::time::Duration;
 
+use scantoprint_core::update::UpdateBridge;
 use scantoprint_core::{config::Config, server};
 use tauri::{AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
@@ -14,13 +17,10 @@ pub const MAIN_WINDOW: &str = "main";
 const MINIMIZED_ARG: &str = "--minimized";
 
 fn main() {
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
-        )
-        .init();
-
-    let config = Config::from_env();
+    let mut config = Config::from_env();
+    let _log_guard = init_logging(&config.data_dir);
+    let bridge = Arc::new(UpdateBridge::new(true));
+    config.updates = bridge.clone();
     let port = config.bind.port();
     let start_minimized = std::env::args().any(|a| a == MINIMIZED_ARG);
 
@@ -39,14 +39,17 @@ fn main() {
             let data_dir = config.data_dir.clone();
 
             // Run the web server for the life of the app.
+            let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 if let Err(e) = server::run(config, std::future::pending()).await {
                     tracing::error!("server stopped: {e:#}");
+                    tray::set_error(&handle, &format!("{e:#}"));
                 }
             });
 
             enable_autostart_on_first_run(app.handle(), &data_dir);
             tray::create(app.handle())?;
+            updater::start(app.handle().clone(), bridge.clone());
 
             if !start_minimized {
                 let handle = app.handle().clone();
@@ -139,4 +142,38 @@ fn enable_autostart_on_first_run(app: &AppHandle, data_dir: &std::path::Path) {
         }
         Err(e) => tracing::warn!("could not enable autostart: {e}"),
     }
+}
+
+/// Log to `<data>/logs/scantoprint.log.YYYY-MM-DD` (and stdout in dev).
+fn init_logging(data_dir: &std::path::Path) -> Option<tracing_appender::non_blocking::WorkerGuard> {
+    use tracing_subscriber::prelude::*;
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| "info,scantoprint_core=info".into());
+    let logs = data_dir.join("logs");
+    let file = std::fs::create_dir_all(&logs).ok().map(|_| {
+        let appender = tracing_appender::rolling::Builder::new()
+            .rotation(tracing_appender::rolling::Rotation::DAILY)
+            .filename_prefix("scantoprint")
+            .filename_suffix("log")
+            .max_log_files(14)
+            .build(&logs);
+        appender.ok().map(tracing_appender::non_blocking)
+    });
+    let (file_layer, guard) = match file.flatten() {
+        Some((writer, guard)) => (
+            Some(
+                tracing_subscriber::fmt::layer()
+                    .with_ansi(false)
+                    .with_writer(writer),
+            ),
+            Some(guard),
+        ),
+        None => (None, None),
+    };
+    tracing_subscriber::registry()
+        .with(filter)
+        .with(tracing_subscriber::fmt::layer())
+        .with(file_layer)
+        .init();
+    guard
 }

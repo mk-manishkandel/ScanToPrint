@@ -28,7 +28,16 @@ Everything runs on the **shop's Windows PC**. Customers connect over the shop Wi
 - ScanToPrint starts with Windows and lives in the **system tray** (bottom-right). Closing the window does **not** stop it. Use tray → **Quit** to stop it.
 - Staff can also open the dashboard from any device on the Wi-Fi at `http://<PC-IP>:8080/admin`.
 - Customer files are stored in `C:\ProgramData\ScanToPrint\storage` and deleted automatically after the number of days set in Settings (default 7).
-- **Updates install automatically.** The dashboard tells you when a new version is ready.
+- **Updates:** when a new version is out, a banner appears in the dashboard. The owner clicks **Install & restart**. Installing waits until nothing is printing.
+
+### Troubleshooting
+| Problem | Fix |
+|---|---|
+| Customers can't open the page | Their phone must be on the shop Wi-Fi. Check the Wi-Fi is set to **Private** in Windows. Make sure the PC's IP matches the QR poster (reserve it on the router). |
+| Word/Excel files say "can't convert" | Install LibreOffice, then click **Retry convert** on the job. |
+| A print failed | Check the printer is on and has paper, then use **Print…** on the job again. |
+| Tray tooltip says "NOT RUNNING" | Another program is using port 8080. Close it and restart ScanToPrint. |
+| Anything else | Logs are in `C:\ProgramData\ScanToPrint\logs`. |
 
 ---
 

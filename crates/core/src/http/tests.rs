@@ -8,10 +8,19 @@ use crate::config::Config;
 use crate::state::AppState;
 
 pub(crate) async fn test_app() -> (axum::Router, tempfile::TempDir) {
+    let (app, _, dir) = test_app_with_state().await;
+    (app, dir)
+}
+
+pub(crate) async fn test_app_with_state() -> (axum::Router, AppState, tempfile::TempDir) {
     let dir = tempfile::tempdir().unwrap();
     let db = crate::db::open_memory().await.unwrap();
-    let state = AppState::new(db, Config::new(dir.path().to_path_buf(), 0));
-    (super::router(state), dir)
+    let (state, workers) = AppState::new(db, Config::new(dir.path().to_path_buf(), 0));
+    workers.start(&state);
+    let app = super::router(state.clone()).layer(axum::extract::connect_info::MockConnectInfo(
+        std::net::SocketAddr::from(([192, 168, 1, 50], 5555)),
+    ));
+    (app, state, dir)
 }
 
 pub(crate) struct Resp {
@@ -193,4 +202,312 @@ async fn wrong_password_rejected_and_last_owner_protected() {
     )
     .await;
     assert_eq!(r.status, StatusCode::BAD_REQUEST);
+}
+
+// ---------------- customer flow ----------------
+
+fn sample_pdf(dir: &std::path::Path, pages_hint: &str) -> Vec<u8> {
+    let png = dir.join(format!("{pages_hint}.png"));
+    image::RgbImage::from_pixel(40, 60, image::Rgb([10, 200, 10]))
+        .save(&png)
+        .unwrap();
+    let pdf = dir.join(format!("{pages_hint}.pdf"));
+    crate::services::pdf::image_to_pdf(&png, &pdf).unwrap();
+    std::fs::read(pdf).unwrap()
+}
+
+async fn upload(app: &axum::Router, job: i64, token: &str, files: &[(&str, Vec<u8>)]) -> Resp {
+    let boundary = "XBOUNDARYX";
+    let mut body = Vec::new();
+    for (name, data) in files {
+        body.extend_from_slice(
+            format!(
+                "--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{name}\"\r\nContent-Type: application/octet-stream\r\n\r\n"
+            )
+            .as_bytes(),
+        );
+        body.extend_from_slice(data);
+        body.extend_from_slice(b"\r\n");
+    }
+    body.extend_from_slice(format!("--{boundary}--\r\n").as_bytes());
+    let req = Request::post(format!("/api/jobs/{job}/files"))
+        .header("x-job-token", token)
+        .header(
+            header::CONTENT_TYPE,
+            format!("multipart/form-data; boundary={boundary}"),
+        )
+        .body(Body::from(body))
+        .unwrap();
+    let res = app.clone().oneshot(req).await.unwrap();
+    let status = res.status();
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    Resp {
+        status,
+        cookie: None,
+        json: serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+    }
+}
+
+async fn new_job(app: &axum::Router) -> (i64, String, String) {
+    let r = call(
+        app,
+        "POST",
+        "/api/jobs",
+        Some(json!({"customer_name":"Sita","customer_phone":"98000"})),
+        None,
+    )
+    .await;
+    assert_eq!(r.status, StatusCode::OK, "{:?}", r.json);
+    (
+        r.json["id"].as_i64().unwrap(),
+        r.json["token"].as_str().unwrap().to_string(),
+        r.json["code"].as_str().unwrap().to_string(),
+    )
+}
+
+async fn get_job_as(app: &axum::Router, id: i64, token: &str) -> Resp {
+    call(app, "GET", &format!("/api/jobs/{id}?t={token}"), None, None).await
+}
+
+async fn wait_converted(app: &axum::Router, id: i64, token: &str) -> Value {
+    for _ in 0..100 {
+        let j = get_job_as(app, id, token).await.json;
+        if j["files"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|f| f["conversion_status"] != "pending")
+        {
+            return j;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+    panic!("conversion did not finish");
+}
+
+#[tokio::test]
+async fn customer_upload_submit_and_staff_sees_it() {
+    let (app, dir) = test_app().await;
+    let owner = setup_owner(&app).await;
+    let (id, token, code) = new_job(&app).await;
+    assert!(code.len() == 5 && code.contains('-'), "{code}");
+
+    let pdf = sample_pdf(dir.path(), "a");
+    let png = std::fs::read(dir.path().join("a.png")).unwrap();
+    let r = upload(&app, id, &token, &[("report.pdf", pdf), ("photo.png", png)]).await;
+    assert_eq!(r.status, StatusCode::OK, "{:?}", r.json);
+    let job = wait_converted(&app, id, &token).await;
+    let files = job["files"].as_array().unwrap();
+    assert_eq!(files.len(), 2);
+    assert!(
+        files
+            .iter()
+            .all(|f| f["conversion_status"] == "ok" && f["page_count"] == 1)
+    );
+    assert_eq!(job["total_pages"], 2);
+
+    // Not in the staff queue until submitted.
+    let q = call(&app, "GET", "/api/admin/jobs", None, Some(&owner)).await;
+    assert_eq!(q.json.as_array().unwrap().len(), 0);
+
+    let r = call(
+        &app,
+        "POST",
+        &format!("/api/jobs/{id}/submit?t={token}"),
+        Some(json!({"notes":"2 copies please"})),
+        None,
+    )
+    .await;
+    assert_eq!(r.json["status"], "submitted");
+
+    let q = call(&app, "GET", "/api/admin/jobs", None, Some(&owner)).await;
+    let list = q.json.as_array().unwrap();
+    assert_eq!(list.len(), 1);
+    assert_eq!(list[0]["notes"], "2 copies please");
+
+    // Staff can download the original and the PDF.
+    let fid = files[0]["id"].as_i64().unwrap();
+    let r = app
+        .clone()
+        .oneshot(
+            Request::get(format!("/api/admin/files/{fid}/original"))
+                .header(header::COOKIE, &owner)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(r.status(), StatusCode::OK);
+    assert!(
+        r.headers()[header::CONTENT_DISPOSITION]
+            .to_str()
+            .unwrap()
+            .contains("report.pdf")
+    );
+
+    // Can't add files after submitting.
+    let r = upload(&app, id, &token, &[("late.pdf", b"%PDF-1.4".to_vec())]).await;
+    assert_eq!(r.status, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn job_token_isolation_and_file_rules() {
+    let (app, _dir) = test_app().await;
+    let (a, token_a, _) = new_job(&app).await;
+    let (b, token_b, _) = new_job(&app).await;
+    assert_eq!(
+        get_job_as(&app, a, &token_b).await.status,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        get_job_as(&app, b, "nope").await.status,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        call(&app, "GET", &format!("/api/jobs/{a}"), None, None)
+            .await
+            .status,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(get_job_as(&app, a, &token_a).await.status, StatusCode::OK);
+
+    // Executables are refused.
+    let r = upload(&app, a, &token_a, &[("virus.exe", b"MZ".to_vec())]).await;
+    assert_eq!(r.status, StatusCode::BAD_REQUEST);
+    // Empty file refused.
+    let r = upload(&app, a, &token_a, &[("empty.pdf", vec![])]).await;
+    assert_eq!(r.status, StatusCode::BAD_REQUEST);
+    // A damaged PDF is accepted but marked failed.
+    let r = upload(&app, a, &token_a, &[("broken.pdf", b"not a pdf".to_vec())]).await;
+    assert_eq!(r.status, StatusCode::OK);
+    let j = wait_converted(&app, a, &token_a).await;
+    assert_eq!(j["files"][0]["conversion_status"], "failed");
+    // Path tricks in names are neutralised.
+    let r = upload(&app, a, &token_a, &[("../../evil.txt", b"hi".to_vec())]).await;
+    assert_eq!(r.status, StatusCode::OK);
+    assert_eq!(r.json["files"][1]["original_name"], "evil.txt");
+}
+
+#[tokio::test]
+async fn self_print_flow_with_payment_skipped() {
+    let (app, state, dir) = test_app_with_state().await;
+    let _owner = setup_owner(&app).await;
+    sqlx::query(
+        "INSERT INTO printers(system_name, display_name, is_active, allow_self_print, supports_duplex, paper_sizes)
+         VALUES (?, 'B/W Laser', 1, 1, 1, '[\"A4\"]')",
+    )
+    .bind(crate::services::printers::MOCK_PRINTER)
+    .execute(&state.db)
+    .await
+    .unwrap();
+    sqlx::query("INSERT INTO printers(system_name, display_name, is_active) VALUES ('Office', 'Office only', 1)")
+        .execute(&state.db)
+        .await
+        .unwrap();
+
+    let printers = call(&app, "GET", "/api/printers/available", None, None)
+        .await
+        .json;
+    assert_eq!(
+        printers.as_array().unwrap().len(),
+        1,
+        "only self-print printers are listed"
+    );
+    let printer_id = printers[0]["id"].as_i64().unwrap();
+    assert!(printers[0].get("system_name").is_none());
+
+    let (id, token, _) = new_job(&app).await;
+    let pdf = sample_pdf(dir.path(), "p");
+    upload(&app, id, &token, &[("doc.pdf", pdf)]).await;
+    let job = wait_converted(&app, id, &token).await;
+    let fid = job["files"][0]["id"].as_i64().unwrap();
+
+    let body = json!({"printer_id": printer_id, "items":[{"file_id": fid, "page_range":"1", "copies":3, "duplex":false}]});
+    let q = call(
+        &app,
+        "POST",
+        &format!("/api/jobs/{id}/quote?t={token}"),
+        Some(body.clone()),
+        None,
+    )
+    .await;
+    assert_eq!(q.status, StatusCode::OK, "{:?}", q.json);
+    assert_eq!(q.json["total_sheets"], 3);
+    assert_eq!(q.json["total_price"], 6.0);
+
+    // Colour isn't supported on this printer.
+    let bad = json!({"printer_id": printer_id, "items":[{"file_id": fid, "color": true}]});
+    let r = call(
+        &app,
+        "POST",
+        &format!("/api/jobs/{id}/quote?t={token}"),
+        Some(bad),
+        None,
+    )
+    .await;
+    assert_eq!(r.status, StatusCode::BAD_REQUEST);
+    // Page out of range.
+    let bad = json!({"printer_id": printer_id, "items":[{"file_id": fid, "page_range": "2"}]});
+    let r = call(
+        &app,
+        "POST",
+        &format!("/api/jobs/{id}/quote?t={token}"),
+        Some(bad),
+        None,
+    )
+    .await;
+    assert_eq!(r.status, StatusCode::BAD_REQUEST);
+
+    let pay = call(
+        &app,
+        "POST",
+        &format!("/api/jobs/{id}/pay?t={token}"),
+        None,
+        None,
+    )
+    .await;
+    assert_eq!(pay.json["status"], "skipped");
+
+    let r = call(
+        &app,
+        "POST",
+        &format!("/api/jobs/{id}/self-print?t={token}"),
+        Some(body),
+        None,
+    )
+    .await;
+    assert_eq!(r.status, StatusCode::OK, "{:?}", r.json);
+    assert_eq!(r.json["mode"], "self");
+    assert_eq!(r.json["payment_status"], "skipped");
+
+    let mut status = String::new();
+    for _ in 0..100 {
+        status = get_job_as(&app, id, &token).await.json["status"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        if status == "done" || status == "failed" {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+    if cfg!(windows) {
+        // No SumatraPDF next to the test binary on CI → recorded as failed, not lost.
+        assert_eq!(status, "failed");
+    } else {
+        assert_eq!(status, "done");
+        let mock = dir.path().join("mock-printer");
+        let settings: Vec<_> = std::fs::read_dir(mock)
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().extension().is_some_and(|x| x == "txt"))
+            .map(|e| std::fs::read_to_string(e.path()).unwrap())
+            .collect();
+        assert_eq!(settings.len(), 1);
+        assert!(
+            settings[0].contains("3x,simplex,monochrome,paper=A4"),
+            "{}",
+            settings[0]
+        );
+    }
 }

@@ -53,3 +53,10 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
         .build(app)?;
     Ok(())
 }
+
+/// Shown when the server can't start (e.g. port 8080 used by another program).
+pub fn set_error(app: &AppHandle, msg: &str) {
+    if let Some(tray) = app.tray_by_id("main") {
+        let _ = tray.set_tooltip(Some(format!("ScanToPrint — NOT RUNNING: {msg}")));
+    }
+}

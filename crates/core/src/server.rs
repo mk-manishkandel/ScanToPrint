@@ -14,7 +14,9 @@ pub async fn run(
 
     let db = crate::db::open(&config.data_dir).await?;
     let bind = config.bind;
-    let state = AppState::new(db, config);
+    let (state, workers) = AppState::new(db, config);
+    workers.start(&state);
+    crate::services::cleanup::start(state.clone());
 
     let app = crate::http::router(state);
     let listener = TcpListener::bind(bind)

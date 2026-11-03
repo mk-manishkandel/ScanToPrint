@@ -1,15 +1,20 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::PathBuf;
+use std::sync::Arc;
+
+use crate::update::UpdateBridge;
 
 /// Default port. Printed QR posters encode this, so it must never change silently.
 pub const DEFAULT_PORT: u16 = 8080;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Config {
     /// Root data folder (database, uploaded files, logs).
     pub data_dir: PathBuf,
     /// Address the HTTP server listens on (all interfaces so phones on the Wi-Fi can reach it).
     pub bind: SocketAddr,
+    /// Auto-update status shared with the desktop shell.
+    pub updates: Arc<UpdateBridge>,
 }
 
 impl Config {
@@ -17,6 +22,7 @@ impl Config {
         Self {
             data_dir,
             bind: SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), port),
+            updates: Arc::new(UpdateBridge::new(false)),
         }
     }
 

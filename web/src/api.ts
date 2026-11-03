@@ -66,3 +66,152 @@ export interface ShopInfo {
   max_files_per_job: number;
   version: string;
 }
+
+export type JobStatus =
+  | "uploaded" | "submitted" | "queued" | "printing" | "ready" | "done" | "collected" | "failed" | "cancelled";
+
+export interface JobFile {
+  id: number;
+  original_name: string;
+  mime: string;
+  size_bytes: number;
+  page_count: number | null;
+  conversion_status: "pending" | "ok" | "failed" | "unsupported";
+  error: string | null;
+}
+
+export interface PrintRun {
+  id: number;
+  file_id: number;
+  printer_id: number | null;
+  printer_name: string | null;
+  page_range: string | null;
+  copies: number;
+  color: boolean;
+  duplex: boolean;
+  paper_size: string;
+  sheets: number;
+  triggered_by: "customer" | "staff";
+  status: "queued" | "printing" | "done" | "failed";
+  error: string | null;
+  created_at: string;
+}
+
+export interface Job {
+  id: number;
+  code: string;
+  customer_name: string | null;
+  customer_phone: string | null;
+  mode: "submit" | "self" | null;
+  status: JobStatus;
+  notes: string | null;
+  total_pages: number;
+  estimated_price: number;
+  payment_status: "skipped" | "pending" | "paid";
+  created_at: string;
+  updated_at: string;
+  files: JobFile[];
+  runs?: PrintRun[];
+}
+
+export interface PrinterOption {
+  id: number;
+  display_name: string;
+  supports_color: boolean;
+  supports_duplex: boolean;
+  paper_sizes: string[];
+}
+
+export interface AdminPrinter extends PrinterOption {
+  system_name: string;
+  is_active: boolean;
+  allow_self_print: boolean;
+  installed: boolean;
+}
+
+export interface PrintItem {
+  file_id: number;
+  page_range: string;
+  copies: number;
+  color: boolean;
+  duplex: boolean;
+  paper_size: string;
+}
+
+export interface PrintPlan {
+  printer_id: number;
+  items: (Omit<PrintItem, "page_range"> & { file_name: string; pages: number; quote: { sides: number; sheets: number; price: number } })[];
+  total_sheets: number;
+  total_price: number;
+  currency: string;
+}
+
+export const STATUS_LABEL: Record<JobStatus, string> = {
+  uploaded: "Not sent yet",
+  submitted: "Waiting",
+  queued: "In print queue",
+  printing: "Printing",
+  ready: "Ready to collect",
+  done: "Printed",
+  collected: "Collected",
+  failed: "Problem",
+  cancelled: "Cancelled",
+};
+
+export const STATUS_TONE: Record<JobStatus, "slate" | "green" | "amber" | "red" | "blue" | "teal"> = {
+  uploaded: "slate",
+  submitted: "amber",
+  queued: "blue",
+  printing: "blue",
+  ready: "green",
+  done: "green",
+  collected: "slate",
+  failed: "red",
+  cancelled: "slate",
+};
+
+export function formatBytes(n: number) {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+export function timeAgo(iso: string) {
+  const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 60) return "just now";
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
+  return new Date(iso).toLocaleDateString();
+}
+
+/** Reconnecting WebSocket; calls onEvent for every message. Returns a close function. */
+export function liveEvents(path: string, onEvent: (e: { type: string; job_id?: number; new?: boolean }) => void, onReconnect?: () => void) {
+  let ws: WebSocket | null = null;
+  let closed = false;
+  let delay = 1000;
+  const connect = () => {
+    const proto = location.protocol === "https:" ? "wss" : "ws";
+    ws = new WebSocket(`${proto}://${location.host}${path}`);
+    ws.onopen = () => {
+      if (delay > 1000) onReconnect?.();
+      delay = 1000;
+    };
+    ws.onmessage = (m) => {
+      try {
+        onEvent(JSON.parse(m.data));
+      } catch {
+        /* ignore */
+      }
+    };
+    ws.onclose = () => {
+      if (closed) return;
+      setTimeout(connect, delay);
+      delay = Math.min(delay * 2, 15000);
+    };
+  };
+  connect();
+  return () => {
+    closed = true;
+    ws?.close();
+  };
+}
