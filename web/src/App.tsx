@@ -1,10 +1,11 @@
 import { Route, Routes } from "react-router-dom";
+import AdminApp from "./admin/AdminApp";
 
-function Placeholder({ title }: { title: string }) {
+function CustomerHome() {
   return (
     <main className="mx-auto max-w-md p-6">
       <h1 className="text-2xl font-bold text-brand-700">ScanToPrint</h1>
-      <p className="mt-2 text-slate-600">{title}</p>
+      <p className="mt-2 text-slate-600">Upload your documents to print.</p>
     </main>
   );
 }
@@ -12,8 +13,8 @@ function Placeholder({ title }: { title: string }) {
 export default function App() {
   return (
     <Routes>
-      <Route path="/admin/*" element={<Placeholder title="Shop dashboard" />} />
-      <Route path="*" element={<Placeholder title="Upload your documents to print" />} />
+      <Route path="/admin/*" element={<AdminApp />} />
+      <Route path="*" element={<CustomerHome />} />
     </Routes>
   );
 }

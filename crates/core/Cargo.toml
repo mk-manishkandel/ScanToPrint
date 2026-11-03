@@ -15,6 +15,14 @@ path = "src/bin/dev-server.rs"
 
 [dependencies]
 anyhow = "1"
+argon2 = "0.5"
+axum-extra = { version = "0.10", features = ["cookie"] }
+cookie = "0.18"
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
+hex = "0.4"
+rand = "0.8"
+sha2 = "0.10"
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite", "macros", "migrate", "chrono"] }
 axum = { version = "0.8", features = ["ws", "multipart"] }
 mime_guess = "2"
 rust-embed = { version = "8", features = ["interpolate-folder-path"] }
@@ -28,4 +36,5 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [dev-dependencies]
 http-body-util = "0.1"
+tempfile = "3"
 tower = { version = "0.5", features = ["util"] }
