@@ -261,7 +261,7 @@ pub fn find_soffice() -> Option<PathBuf> {
 fn soffice_candidates() -> Vec<PathBuf> {
     ["ProgramFiles", "ProgramFiles(x86)", "ProgramW6432"]
         .iter()
-        .filter_map(|var| std::env::var_os(var))
+        .filter_map(std::env::var_os)
         .map(|base| PathBuf::from(base).join(r"LibreOffice\program\soffice.exe"))
         .collect()
 }
