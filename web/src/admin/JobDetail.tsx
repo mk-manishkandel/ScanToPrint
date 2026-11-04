@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft, CheckCircle2, Clock, Download, ExternalLink, Eye, EyeOff, FolderOpen, MessageSquareQuote, PackageCheck, Phone,
@@ -17,6 +17,11 @@ export default function JobDetail() {
   const [job, setJob] = useState<Job | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<number | null>(null);
+  const previewRef = useRef<HTMLElement>(null);
+  // Bring the preview into view when one is opened (not on every live refresh).
+  useEffect(() => {
+    if (preview) previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [preview]);
   const [printing, setPrinting] = useState(false);
 
   const load = useCallback(() => api.get<Job>(`/api/admin/jobs/${id}`).then(setJob, (e) => setError(e.message)), [id]);
@@ -26,6 +31,7 @@ export default function JobDetail() {
   }, [id, load]);
 
   if (!job) return error ? <ErrorText error={error} /> : <div className="grid place-items-center py-20"><Spinner className="h-7 w-7" /></div>;
+  const previewFile = job.files.find((f) => f.id === preview) ?? null;
 
   const setStatus = (status: JobStatus) =>
     api.patch<Job>(`/api/admin/jobs/${job.id}`, { status }).then(setJob, (e) => setError(e.message));
@@ -78,7 +84,6 @@ export default function JobDetail() {
       </Card>
       <ErrorText error={error} />
 
-      <div className={`grid items-start gap-6 ${preview ? "xl:grid-cols-2" : ""}`}>
       <section aria-label="Files" className="space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-steel">Files ({job.files.length})</h2>
         <Card className="!p-2">
@@ -127,10 +132,21 @@ export default function JobDetail() {
           </ul>
         </Card>
       </section>
-      {preview && (
-        <iframe title="File preview" src={`/api/admin/files/${preview}/pdf`} className="h-[75vh] w-full rounded-3xl bg-deep ring-1 ring-line animate-fade-in xl:sticky xl:top-6 xl:h-[calc(100dvh-3rem)]" />
+      {previewFile && (
+        <section
+          aria-label="Preview"
+          className="space-y-3 animate-fade-in"
+          ref={previewRef}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="min-w-0 truncate text-sm font-semibold uppercase tracking-wider text-steel">
+              Preview <span className="normal-case tracking-normal text-frost/85">· {previewFile.original_name}</span>
+            </h2>
+            <Button variant="secondary" size="sm" icon={EyeOff} onClick={() => setPreview(null)}>Close preview</Button>
+          </div>
+          <iframe key={previewFile.id} title={`Preview of ${previewFile.original_name}`} src={`/api/admin/files/${previewFile.id}/pdf`} className="block h-[85dvh] w-full rounded-2xl bg-deep ring-1 ring-line" />
+        </section>
       )}
-      </div>
 
       {!!job.runs?.length && (
         <section aria-label="Print history" className="space-y-3">
