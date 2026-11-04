@@ -1,0 +1,54 @@
+name: Bug report
+description: Something isn't working
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for reporting! For security problems, please use the Security tab instead (see SECURITY.md).
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Customer uploads a .docx from an Android phone
+        2. Clicks "Print it myself"
+        3. ...
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Customer page (phone)
+        - Staff dashboard
+        - Printing
+        - File conversion (Word/Excel/images)
+        - Installer / updates / tray
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: ScanToPrint version
+      description: Shown on the QR poster page in the dashboard.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version and printer model
+      placeholder: Windows 11 23H2, HP LaserJet M111w
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevant lines from C:\ProgramData\ScanToPrint\logs (remove customer names/phone numbers).
+      render: text

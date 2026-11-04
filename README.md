@@ -1,33 +1,84 @@
+<div align="center">
+
+<img src="src-tauri/icons/128x128@2x.png" width="96" alt="ScanToPrint logo">
+
 # ScanToPrint
 
-QR-code document printing for stationery and print shops.
+**QR-code document printing for stationery and print shops.**
+Customers scan a QR code, upload their files from their phone, and print, with no email or WhatsApp needed.
 
-A QR code stands at the counter. Customers scan it with their phone, upload documents (PDF, photos, Word, Excel, PowerPoint…) and either:
+[![CI](https://github.com/mk-manishkandel/ScanToPrint/actions/workflows/ci.yml/badge.svg)](https://github.com/mk-manishkandel/ScanToPrint/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/mk-manishkandel/ScanToPrint?label=download)](https://github.com/mk-manishkandel/ScanToPrint/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-teal.svg)](LICENSE)
+![Platform: Windows](https://img.shields.io/badge/platform-Windows%2010%2F11-blue)
 
-- **Submit for Print**: the job appears instantly on the shop dashboard, and staff open the file and print it, or
-- **Print by Yourself**: the customer picks one of the shop's activated printers, chooses pages, copies, colour and sides, and the job prints straight away.
-
-Payment is a placeholder step for now (always "skipped").
-
-Everything runs on the **shop's Windows PC**. Customers connect over the shop Wi-Fi, and no internet or cloud account is needed.
+</div>
 
 ---
 
-## For shop owners
+## Why
 
-### Install
+Most small print shops still say *"email it to me"* or *"send it on WhatsApp"*. That's slow, it fills the owner's personal inbox with strangers' documents, and every job needs the owner's hands.
+
+ScanToPrint puts a **QR code on the counter** instead. Customers scan it, upload, and either hand the job to staff or print it themselves on the shop's printer.
+
+## Features
+
+**For customers (any phone, no app install)**
+- Upload PDFs, photos, Word, Excel, PowerPoint, text files, and more
+- **Submit for print:** the job appears instantly on the shop's screen, with your notes
+- **Print it yourself:** pick a printer, choose pages, copies, colour or B/W, single or double-sided, and paper size, and see the price before printing
+- A job number and live status: *Waiting → Printing → Ready to collect*
+
+**For the shop**
+- Live print queue with a sound alert for every new job
+- Preview, download or open files on the PC, then print with full options
+- Printer setup: choose which Windows printers customers may use, and set their colour, duplex and paper options
+- Your own price list, staff accounts (owner / staff roles), and job history with search
+- Printable QR poster that detects the PC's network address automatically
+- Customer files stay **on the shop PC** and are deleted automatically after N days
+- Runs in the system tray, starts with Windows, and **updates itself** with signed updates
+
+**Payment** is a placeholder step for now (always "pay at the counter"). The code is ready for a payment gateway (eSewa, Khalti, FonePay…) to be added.
+
+## Screenshots
+
+| Customer: upload | Customer: print it yourself | Customer: live status |
+|---|---|---|
+| <img src="docs/screenshots/customer-upload.png" width="240"> | <img src="docs/screenshots/customer-self-print.png" width="240"> | <img src="docs/screenshots/customer-status.png" width="240"> |
+
+| Staff: live print queue | Staff: print dialog |
+|---|---|
+| <img src="docs/screenshots/dashboard-queue.png" width="420"> | <img src="docs/screenshots/dashboard-print.png" width="420"> |
+
+## How it works
+
+```
+ Customer's phone ──(shop Wi-Fi)──►  Shop Windows PC running ScanToPrint
+                                      ├─ Web server (customer page + staff dashboard) :8080
+                                      ├─ SQLite database + file storage (C:\ProgramData\ScanToPrint)
+                                      ├─ Converts Office files/images → PDF (LibreOffice, built-in)
+                                      └─ Prints silently to Windows printers (bundled SumatraPDF)
+```
+
+Everything runs on the shop's own PC. No cloud account, no subscription, and customer files never leave the shop.
+
+---
+
+## Install (shop owners)
+
 1. Download **`ScanToPrint_x.y.z_x64-setup.exe`** from the [latest release](https://github.com/mk-manishkandel/ScanToPrint/releases/latest).
 2. Run it. If Windows shows **"Windows protected your PC"**, click **More info → Run anyway**. The installer isn't code-signed yet; this is expected.
-3. Open ScanToPrint and follow the setup wizard: shop name, owner password, printers.
-4. For Word/Excel/PowerPoint files, install [LibreOffice](https://www.libreoffice.org/download/) when the app asks. PDFs and photos work without it.
-5. In your Wi-Fi router, **reserve a fixed IP address** for this PC, so the QR code keeps working.
-6. In Windows, set the shop Wi-Fi network to **Private**.
-7. Print the QR poster (tray icon → **Show QR Code**) and put it at the counter.
+3. Open ScanToPrint and follow the setup: shop name and owner password.
+4. Go to **Printers → Scan for printers**, then turn on your printers.
+5. For Word/Excel/PowerPoint files, install the free [LibreOffice](https://www.libreoffice.org/download/). PDFs and photos work without it.
+6. In your Wi-Fi router, **reserve a fixed IP address** for this PC, so the QR code keeps working.
+7. In Windows, set the shop Wi-Fi network to **Private**.
+8. Open **QR poster**, print it, and put it at the counter.
 
 ### Day to day
-- ScanToPrint starts with Windows and lives in the **system tray** (bottom-right). Closing the window does **not** stop it. Use tray → **Quit** to stop it.
-- Staff can also open the dashboard from any device on the Wi-Fi at `http://<PC-IP>:8080/admin`.
-- Customer files are stored in `C:\ProgramData\ScanToPrint\storage` and deleted automatically after the number of days set in Settings (default 7).
+- ScanToPrint lives in the **system tray** (bottom-right). Closing the window does **not** stop it. Use tray → **Quit** to stop it.
+- Staff can open the dashboard from any device on the Wi-Fi: `http://<PC-IP>:8080/admin`.
 - **Updates:** when a new version is out, a banner appears in the dashboard. The owner clicks **Install & restart**. Installing waits until nothing is printing.
 
 ### Troubleshooting
@@ -37,76 +88,44 @@ Everything runs on the **shop's Windows PC**. Customers connect over the shop Wi
 | Word/Excel files say "can't convert" | Install LibreOffice, then click **Retry convert** on the job. |
 | A print failed | Check the printer is on and has paper, then use **Print…** on the job again. |
 | Tray tooltip says "NOT RUNNING" | Another program is using port 8080. Close it and restart ScanToPrint. |
-| Anything else | Logs are in `C:\ProgramData\ScanToPrint\logs`. |
+| Anything else | Logs are in `C:\ProgramData\ScanToPrint\logs`. [Open an issue](https://github.com/mk-manishkandel/ScanToPrint/issues/new/choose) and attach them. |
 
 ---
 
-## For developers
+## Development
 
-### Stack
 | Part | Tech |
 |---|---|
-| Desktop shell, tray, installer, auto-update | Tauri 2 (`src-tauri/`) |
-| Server, API, conversion, printing | Rust: Axum + tokio + SQLite/sqlx (`crates/core/`) |
-| Customer portal and admin UI | React + Vite + Tailwind (`web/`), embedded into the binary |
-| Printing | SumatraPDF (bundled sidecar, GPLv3, pinned + checksum-verified) |
-| Office → PDF | LibreOffice headless (installed separately on the shop PC) |
+| Desktop shell, tray, installer, auto-update | [Tauri 2](https://tauri.app) (`src-tauri/`) |
+| Server, API, conversion, printing | Rust: Axum, tokio, SQLite via sqlx (`crates/core/`) |
+| Customer page and dashboard | React, Vite, Tailwind CSS (`web/`), embedded into the binary |
+| Printing | [SumatraPDF](https://www.sumatrapdfreader.org) (bundled, pinned and checksum-verified) |
+| Office → PDF | LibreOffice headless (installed separately) |
 
-### Prerequisites
-- Rust (the version is pinned in `rust-toolchain.toml`; `rustup` installs it automatically)
-- Node.js 22+
-
-### Run locally (any OS)
 ```bash
 npm ci
-npm run web:build                       # build the UI once (embedded by the server)
-cargo run -p scantoprint-core --bin dev-server   # http://localhost:8080, data in ./data
-# For UI hot reload, also run:
-npm run web:dev                         # http://localhost:5173 (proxies /api → :8080)
-```
-Desktop app in dev mode: `npm run tauri dev`. On macOS, printing uses a mock printer.
-
-### Checks (same as CI)
-```bash
-node scripts/check-versions.mjs
-cargo fmt --all --check
-cargo clippy --workspace --all-targets --locked -- -D warnings
-cargo test --workspace --locked
 npm run web:build
+cargo run -p scantoprint-core --bin dev-server   # http://localhost:8080, data in ./data
+npm run web:dev                                  # optional: UI hot reload on :5173
 ```
 
----
+Works on macOS, Linux and Windows. Outside Windows, printing goes to a mock printer. See **[CONTRIBUTING.md](CONTRIBUTING.md)** for the project layout, checks and rules.
 
-## Releasing an update
+## Releasing (maintainers)
 
-> ⚠️ Read this before every release. These rules keep auto-update working for every installed shop.
-
-1. **Bump the version in all four places** (CI fails if they differ):
-   `src-tauri/tauri.conf.json`, `Cargo.toml` (`[workspace.package]`), `package.json`, `web/package.json`.
-   Then run `cargo check` so `Cargo.lock` updates, and commit.
-2. **Create and push a signed tag**: `git tag -s v1.2.3 -m "v1.2.3" && git push origin main v1.2.3`
+1. Bump the version in `src-tauri/tauri.conf.json`, `Cargo.toml`, `package.json` and `web/package.json` (CI checks they match). Run `cargo check`, then commit.
+2. Create and push a signed tag: `git tag -s v1.2.3 -m "v1.2.3" && git push origin main v1.2.3`
 3. GitHub Actions builds the installer, signs the update and creates a **draft release**.
-4. Download the `.exe` from the draft and **test it on a Windows PC**, including updating from the previous version.
-5. Click **Publish release**. Installed apps pick up the update within about 6 hours, or on their next start.
+4. Test the draft installer on Windows, including updating from the previous version, then click **Publish**.
 
-### Never do these
-- **Never change** `identifier` (`com.mkmanishkandel.scantoprint`) in `tauri.conf.json`. Installs and updates are matched by it.
-- **Never edit a database migration that has been released.** Add a new migration file instead.
-- **Never change the default port 8080.** It is printed on every shop's QR poster.
-- **Never commit** the updater private key, its password, `.env` files or certificates.
-- **Never lose the updater signing key.** Without it, no installed copy can ever be updated again.
+Release updates are signed with a private key held only by the maintainer. Installed apps reject any update that isn't signed with it. See [SECURITY.md](SECURITY.md).
 
-### Signing
-| What | How | Where the secret lives |
-|---|---|---|
-| Git commits and tags | SSH signing key `~/.ssh/scantoprint_signing` (repo-local git config) | Developer machine; public key registered on GitHub as a *signing* key |
-| App updates | Tauri updater key (minisign) | Private key + password in GitHub Actions secrets `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, plus an **offline backup**. The public key is in `tauri.conf.json` |
-| Windows installer (Authenticode) | Not yet. Add later with `bundle.windows.signCommand` | — |
+## Contributing
 
-Rotating the updater key is only possible by shipping a release signed with the **old** key that contains the **new** public key.
+Issues and pull requests are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md). To report a security problem, see [SECURITY.md](SECURITY.md).
 
----
+## License
 
-## Third-party software
-- **SumatraPDF** © Krzysztof Kowalczyk et al., GPLv3. It is bundled unmodified as a separate program. See `src-tauri/binaries/SumatraPDF-LICENSE.txt`.
-- **LibreOffice** is not bundled; shop owners install it themselves.
+[MIT](LICENSE) © mk-manishkandel and contributors.
+
+ScanToPrint bundles **SumatraPDF** (© Krzysztof Kowalczyk et al., GPLv3) unmodified, as a separate program used for printing. See [`src-tauri/binaries/SumatraPDF-LICENSE.txt`](src-tauri/binaries/SumatraPDF-LICENSE.txt). LibreOffice is not bundled.
