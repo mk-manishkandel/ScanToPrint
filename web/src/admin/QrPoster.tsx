@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Activity, Download, FolderOpen, Globe, Lightbulb, Printer, QrCode, ScanLine, Upload, Wifi } from "lucide-react";
-import { api, type ShopInfo } from "../api";
-import { Badge, Button, Card, ErrorText, PageHeader, Select, Spinner } from "../components/ui";
+import { Activity, CheckCircle2, Circle, ClipboardCheck, Download, FolderOpen, Globe, Printer, QrCode, ScanLine, Upload, Wifi } from "lucide-react";
+import { api, type AdminPrinter, type ShopInfo } from "../api";
+import { Badge, Button, Card, ErrorText, PageHeader, Spinner } from "../components/ui";
+import { Select } from "../components/pickers";
 
 interface SystemInfo {
   version: string;
@@ -19,8 +20,11 @@ export default function QrPoster() {
   const [shop, setShop] = useState<ShopInfo | null>(null);
   const [url, setUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [activePrinters, setActivePrinters] = useState<number | null>(null);
 
   useEffect(() => {
+    // Owner-only list; staff just don't get the live tick.
+    api.get<AdminPrinter[]>("/api/admin/printers").then((p) => setActivePrinters(p.filter((x) => x.is_active).length), () => {});
     api.get<SystemInfo>("/api/admin/system").then((s) => {
       setSys(s);
       setUrl(s.portal_urls[0] ?? "");
@@ -42,20 +46,20 @@ export default function QrPoster() {
       </div>
       <div className="print:hidden"><ErrorText error={error} /></div>
 
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] 2xl:grid-cols-[minmax(0,1fr)_26rem] print:block">
+      <div className="grid items-start gap-6 lg:grid-cols-[26rem_minmax(0,1fr)] 2xl:grid-cols-[30rem_minmax(0,1fr)] print:block">
         {/* The poster: what gets printed. */}
         {url ? (
           <section
             aria-label="Poster preview"
-            className="mx-auto w-full max-w-lg rounded-3xl 2xl:max-w-2xl 2xl:py-14 bg-ink px-6 py-10 text-center ring-1 ring-line animate-fade-in sm:px-10 print:max-w-none print:rounded-none print:bg-white print:py-16 print:text-black print:ring-0"
+            className="w-full max-w-lg rounded-3xl bg-ink px-6 py-10 text-center ring-1 ring-line animate-fade-in sm:px-10 print:max-w-none print:rounded-none print:bg-white print:py-16 print:text-black print:ring-0"
           >
             <div className="text-xs font-semibold uppercase tracking-[0.3em] text-gold print:text-black">Scan · Upload · Print</div>
-            <div className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl 2xl:text-5xl">{shop?.shop_name}</div>
+            <div className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">{shop?.shop_name}</div>
             <div className="mt-2 text-base text-frost/80 sm:text-lg print:text-black">Print your documents from your phone</div>
             <div className="mx-auto my-8 w-fit rounded-2xl bg-white p-4 ring-2 ring-gold print:ring-black">
-              <img className="block w-56 sm:w-64 2xl:w-80 print:w-80" alt={`QR code for ${url}`} src={`/api/admin/qr.svg?url=${encodeURIComponent(url)}`} />
+              <img className="block w-56 sm:w-64 print:w-80" alt={`QR code for ${url}`} src={`/api/admin/qr.svg?url=${encodeURIComponent(url)}`} />
             </div>
-            <ol className="mx-auto grid max-w-md grid-cols-3 gap-2 text-sm 2xl:max-w-lg 2xl:text-base">
+            <ol className="mx-auto grid max-w-md grid-cols-3 gap-2 text-sm">
               {([[Wifi, "Join our Wi-Fi"], [ScanLine, "Scan the code"], [Upload, "Upload & print"]] as const).map(([Icon, t], i) => (
                 <li key={t} className="flex flex-col items-center gap-2">
                   <span className="grid h-11 w-11 place-items-center rounded-full bg-midnight text-gold ring-1 ring-gold/50 print:bg-white print:text-black print:ring-2 print:ring-black">
@@ -74,22 +78,18 @@ export default function QrPoster() {
         )}
 
         {/* Settings and health: never printed. */}
-        <div className="space-y-4 print:hidden">
+        <div className="grid items-start gap-4 print:hidden xl:grid-cols-2">
           <Card as="section" className="space-y-3 text-sm">
             <h2 className="flex items-center gap-2 font-semibold"><Globe aria-hidden className="h-4 w-4 text-gold" /> Portal address</h2>
             {sys.portal_urls.length === 0 ? (
               <ErrorText error="This PC isn't connected to a network. Connect it to the shop Wi-Fi/router." />
             ) : (
-              <label className="block">
-                <span className="sr-only">Portal address</span>
-                <Select value={url} onChange={(e) => setUrl(e.target.value)}>
-                  {sys.portal_urls.map((u) => <option key={u}>{u}</option>)}
-                </Select>
-              </label>
+              <Select label="Portal address" value={url} onChange={setUrl} options={sys.portal_urls.map((u) => ({ value: u, label: u }))} />
             )}
-            <p className="flex gap-2 text-steel">
-              <Lightbulb aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
-              <span>In your router settings, <b className="font-semibold text-frost">reserve this IP address</b> for this PC so the QR code keeps working after restarts.</span>
+            <p className="text-steel">
+              {sys.portal_urls.length > 1
+                ? "This PC has more than one network. Pick the one your shop Wi-Fi uses."
+                : "Customers open this address when they scan the code."}
             </p>
           </Card>
 
@@ -121,9 +121,64 @@ export default function QrPoster() {
               )}
             </div>
           </Card>
+
+          <Checklist activePrinters={activePrinters} hasUrl={!!url} />
         </div>
       </div>
     </div>
+  );
+}
+
+/** What to do before the poster goes up, with live ticks where the app can tell. */
+function Checklist({ activePrinters, hasUrl }: { activePrinters: number | null; hasUrl: boolean }) {
+  const steps: { done: boolean | null; title: string; body: React.ReactNode }[] = [
+    {
+      done: hasUrl,
+      title: "Connect this PC to the shop network",
+      body: "Use the same router as your customer Wi-Fi. In Windows, set that network to Private so phones can reach this PC.",
+    },
+    {
+      done: null,
+      title: "Reserve this PC's IP address",
+      body: "In your router settings, reserve the address above for this PC. Otherwise it can change after a restart and the printed code stops working.",
+    },
+    {
+      done: activePrinters === null ? null : activePrinters > 0,
+      title: "Turn on at least one printer",
+      body: activePrinters ? `${activePrinters} printer${activePrinters === 1 ? " is" : "s are"} on.` : "Go to Printers, scan, and switch a printer on.",
+    },
+    {
+      done: null,
+      title: "Test it with your phone",
+      body: "Join the shop Wi-Fi, scan the code on screen, and upload a photo. It should appear in the print queue with a sound.",
+    },
+    {
+      done: null,
+      title: "Print and put it up",
+      body: "Place it at eye level by the counter, where customers wait.",
+    },
+  ];
+  return (
+    <Card as="section" className="text-sm xl:col-span-2">
+      <h2 className="flex items-center gap-2 font-semibold"><ClipboardCheck aria-hidden className="h-4 w-4 text-gold" /> Before you put it up</h2>
+      <ol className="mt-4 grid gap-x-8 gap-y-4 md:grid-cols-2">
+        {steps.map((s, i) => (
+          <li key={s.title} className="flex gap-3">
+            {s.done ? (
+              <CheckCircle2 aria-label="Done" className="mt-0.5 h-5 w-5 shrink-0 text-gold" />
+            ) : (
+              <span aria-hidden className="grid h-5 w-5 shrink-0 translate-y-0.5 place-items-center rounded-full text-[11px] font-bold text-steel ring-1 ring-line-strong">
+                {s.done === false ? <Circle className="h-2 w-2 fill-danger text-danger" /> : i + 1}
+              </span>
+            )}
+            <div>
+              <div className="font-medium">{s.title}</div>
+              <div className="mt-0.5 text-steel">{s.body}</div>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </Card>
   );
 }
 

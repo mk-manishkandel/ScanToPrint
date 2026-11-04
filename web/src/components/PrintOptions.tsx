@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { BookOpen, Copy, Droplet, Palette, Printer as PrinterIcon, Square } from "lucide-react";
 import type { JobFile, PrintItem, PrintPlan, PrinterOption } from "../api";
-import { Chip, ErrorText, FileIcon, Input, Segmented, Select, Spinner, Stepper } from "./ui";
+import { Chip, ErrorText, FileIcon, Input, Segmented, Spinner, Stepper } from "./ui";
+import { Select } from "./pickers";
 
 export type PrintBody = { printer_id?: number; items: PrintItem[] };
 export type PrintState = { body: PrintBody | null; plan: PrintPlan | null };
@@ -207,14 +208,15 @@ export function PrintOptions({
                   </p>
                 )}
                 <Stepper label="Copies" value={it.copies} onChange={(n) => update(f.id, { copies: n })} />
-                <label className="block">
-                  <span className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-steel">Paper</span>
-                  <Select value={it.paper_size} onChange={(e) => update(f.id, { paper_size: e.target.value })}>
-                    {can.paper_sizes.map((s) => (
-                      <option key={s}>{s}</option>
-                    ))}
-                  </Select>
-                </label>
+                <div>
+                  <span aria-hidden className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-steel">Paper</span>
+                  <Select
+                    label="Paper size"
+                    value={it.paper_size}
+                    options={can.paper_sizes.map((s) => ({ value: s, label: s }))}
+                    onChange={(v) => update(f.id, { paper_size: v })}
+                  />
+                </div>
                 <label className="col-span-2 block">
                   <span className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-steel">Pages</span>
                   <Input

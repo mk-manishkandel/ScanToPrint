@@ -86,7 +86,7 @@ The UI uses one dark palette, defined as Tailwind tokens in `web/src/index.css`.
 - The printed QR poster must stay black on white (`print:` classes), so it doesn't waste toner.
 - **Type:** DM Sans, bundled via `@fontsource-variable/dm-sans`. Don't load fonts from the internet; shops may be offline, and the CSP blocks it. Use `tabular-nums` for job codes, prices and counts.
 - **Icons:** `lucide-react` only. No emoji as icons. Decorative icons get `aria-hidden`, and icon-only buttons use `IconButton`, which requires a `label`.
-- **Touch:** controls are at least 44px tall (`min-h-11`). Use the shared components in `web/src/components/ui.tsx` (`Button`, `Segmented`, `Stepper`, `Switch`, `Sheet`, `EmptyState`…) instead of one-off styles.
+- **Touch:** controls are at least 44px tall (`min-h-11`). Use the shared components in `web/src/components/ui.tsx` (`Button`, `Segmented`, `Stepper`, `Switch`, `Sheet`, `EmptyState`…) instead of one-off styles. For choices and dates use `Select` and `DatePicker` from `web/src/components/pickers.tsx`, never a native `<select>` or `<input type="date">`: their menus and calendars can't be themed.
 - **Motion:** use the short `animate-fade-in` / `animate-rise` / `animate-sheet-up` tokens. They are switched off automatically for reduced-motion users.
 - An option a printer can't do (e.g. colour) stays visible but disabled, with the reason, rather than disappearing.
 

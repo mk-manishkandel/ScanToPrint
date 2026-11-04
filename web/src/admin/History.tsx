@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { FileStack, Files, Inbox, History as HistoryIcon, Printer, Search, Store, Wallet, X, type LucideIcon } from "lucide-react";
 import { api, STATUS_LABEL, STATUS_TONE, type Job } from "../api";
 import { Badge, Button, EmptyState, ErrorText, Input, PageHeader, Spinner } from "../components/ui";
+import { DatePicker } from "../components/pickers";
 
 export default function History() {
   const [jobs, setJobs] = useState<Job[] | null>(null);
@@ -45,10 +46,9 @@ export default function History() {
           <Input className="!pl-10" placeholder="Search code, name or phone" value={q} onChange={(e) => setQ(e.target.value)} />
         </label>
         <div className="flex gap-2">
-          <label className="block flex-1 sm:w-48 sm:flex-none">
-            <span className="sr-only">Date</span>
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-          </label>
+          <div className="flex-1 sm:w-52 sm:flex-none">
+            <DatePicker label="Date" value={date} onChange={setDate} max={new Date().toLocaleDateString("en-CA")} />
+          </div>
           {(q || date) && (
             <Button variant="ghost" icon={X} onClick={() => { setQ(""); setDate(""); }}>Clear</Button>
           )}

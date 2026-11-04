@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { KeyRound, Power, Trash2, UserPlus, Users as UsersIcon } from "lucide-react";
 import { api, type User } from "../api";
-import { Badge, Button, Card, ErrorText, Field, IconButton, Input, PageHeader, Select } from "../components/ui";
+import { Badge, Button, Card, ErrorText, Field, IconButton, Input, PageHeader } from "../components/ui";
+import { Select } from "../components/pickers";
 import { useAuth } from "./AdminApp";
 
 export default function Users() {
@@ -97,10 +98,14 @@ export default function Users() {
               <Input type="password" autoComplete="new-password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
             </Field>
             <Field label="Role">
-              <Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
-                <option value="staff">Staff: print jobs</option>
-                <option value="owner">Owner: everything, including settings</option>
-              </Select>
+              <Select
+                value={form.role}
+                onChange={(role) => setForm({ ...form, role })}
+                options={[
+                  { value: "staff", label: "Staff", description: "Handles print jobs" },
+                  { value: "owner", label: "Owner", description: "Everything, including settings and printers" },
+                ]}
+              />
             </Field>
           </div>
           <Button type="submit" icon={UserPlus} loading={busy} disabled={!form.name || !form.username || form.password.length < 8}>

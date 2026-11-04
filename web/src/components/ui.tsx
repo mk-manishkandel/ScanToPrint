@@ -1,6 +1,6 @@
 import {
   useEffect, useId, useRef,
-  type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes,
+  type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes,
 } from "react";
 import {
   AlertCircle, Check, File, FileImage, FileSpreadsheet, FileText, Loader2, Minus, Plus, Presentation, X, type LucideIcon,
@@ -127,10 +127,6 @@ const FIELD =
 
 export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={`${FIELD} min-h-11 py-2.5 ${props.className ?? ""}`} />;
-}
-
-export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select {...props} className={`${FIELD} min-h-11 cursor-pointer py-2.5 ${props.className ?? ""}`} />;
 }
 
 export function Textarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
