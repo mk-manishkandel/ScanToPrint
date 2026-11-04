@@ -4,7 +4,7 @@ members = ["crates/core", "src-tauri"]
 
 [workspace.package]
 # Keep in sync with src-tauri/tauri.conf.json (checked by scripts/check-versions.mjs)
-version = "0.1.7"
+version = "0.1.8"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/mk-manishkandel/ScanToPrint"
