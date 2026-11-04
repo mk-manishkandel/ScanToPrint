@@ -1,7 +1,7 @@
 name: Release
 
-# Push a signed tag (git tag -s v1.2.3 && git push origin v1.2.3) to build a DRAFT release.
-# Test the installer from the draft, then click "Publish" — only then do shops get the update.
+# Push a signed tag (git tag -s v1.2.3 && git push origin v1.2.3) to build and PUBLISH a release.
+# Shops are offered the update as soon as this finishes, so only tag what's ready to ship.
 on:
   push:
     tags: ["v*.*.*"]
@@ -43,7 +43,7 @@ jobs:
         shell: pwsh
         run: ./scripts/fetch-sumatra.ps1
 
-      - name: Build, sign updates, create draft release
+      - name: Build, sign updates, publish release
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -55,6 +55,6 @@ jobs:
           releaseBody: |
             Download **ScanToPrint_*_x64-setup.exe** below and run it on the shop PC.
             Already installed? The app updates itself — no download needed.
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           includeUpdaterJson: true

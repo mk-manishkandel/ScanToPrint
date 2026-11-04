@@ -115,8 +115,7 @@ Works on macOS, Linux and Windows. Outside Windows, printing goes to a mock prin
 
 1. Bump the version in `src-tauri/tauri.conf.json`, `Cargo.toml`, `package.json` and `web/package.json` (CI checks they match). Run `cargo check`, then commit.
 2. Create and push a signed tag: `git tag -s v1.2.3 -m "v1.2.3" && git push origin main v1.2.3`
-3. GitHub Actions builds the installer, signs the update and creates a **draft release**.
-4. Test the draft installer on Windows, including updating from the previous version, then click **Publish**.
+3. GitHub Actions builds the installer, signs the update and **publishes the release**. Installed apps are offered the update within minutes, so only tag a version that's ready to ship.
 
 Release updates are signed with a private key held only by the maintainer. Installed apps reject any update that isn't signed with it. See [SECURITY.md](SECURITY.md).
 
