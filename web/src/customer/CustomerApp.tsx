@@ -3,7 +3,7 @@ import {
   api, formatBytes, liveEvents, STATUS_LABEL, type Job, type PrintItem, type PrintPlan, type PrinterOption, type ShopInfo,
 } from "../api";
 import { PrintOptions } from "../components/PrintOptions";
-import { Badge, Button, Card, ErrorText, Input, Spinner } from "../components/ui";
+import { Badge, Button, Card, ErrorText, Input, Logo, Spinner } from "../components/ui";
 
 const STORE_KEY = "stp_job";
 type Saved = { id: number; token: string };
@@ -74,9 +74,12 @@ export default function CustomerApp() {
 
   return (
     <div className="mx-auto min-h-screen max-w-lg px-4 pb-16 pt-6">
-      <header className="mb-6">
-        <div className="text-sm font-medium uppercase tracking-wide text-brand-700">ScanToPrint</div>
-        <h1 className="text-2xl font-bold">{shop?.shop_name ?? " "}</h1>
+      <header className="mb-6 flex items-center gap-3">
+        <Logo className="h-11 w-11" />
+        <div className="min-w-0">
+          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-gold">ScanToPrint</div>
+          <h1 className="truncate text-2xl font-bold">{shop?.shop_name ?? " "}</h1>
+        </div>
       </header>
       <ErrorText error={error} />
       {!job || job.status === "uploaded" ? (
@@ -159,7 +162,7 @@ function UploadStep({
     <div className="space-y-5">
       {!job && (
         <Card className="space-y-3">
-          <p className="text-slate-600">Send your documents straight to the shop's printer. No email or WhatsApp needed.</p>
+          <p className="text-frost/80">Send your documents straight to the shop's printer. No email or WhatsApp needed.</p>
           <div className="grid grid-cols-2 gap-3">
             <Input placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} />
             <Input placeholder="Phone" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
@@ -172,43 +175,43 @@ function UploadStep({
         type="button"
         disabled={progress !== null}
         onClick={() => fileInput.current?.click()}
-        className="flex w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-brand-500 bg-brand-50 px-4 py-8 text-brand-800 active:bg-brand-100"
+        className="flex w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gold/50 bg-ink/60 px-4 py-8 text-gold-soft transition hover:border-gold hover:bg-navy-hover active:bg-navy-hover"
       >
         <span className="text-4xl">＋</span>
         <span className="mt-1 text-lg font-semibold">{files.length ? "Add more files" : "Choose files to print"}</span>
-        <span className="text-xs text-brand-700">PDF, photos, Word, Excel, PowerPoint · up to {shop?.max_file_mb ?? 50} MB each</span>
+        <span className="text-xs text-gold">PDF, photos, Word, Excel, PowerPoint · up to {shop?.max_file_mb ?? 50} MB each</span>
       </button>
 
       {progress !== null && (
         <div>
-          <div className="mb-1 text-sm text-slate-600">Uploading… {progress}%</div>
-          <div className="h-2 overflow-hidden rounded-full bg-slate-200">
-            <div className="h-full bg-brand-600 transition-all" style={{ width: `${progress}%` }} />
+          <div className="mb-1 text-sm text-frost/80">Uploading… {progress}%</div>
+          <div className="h-2 overflow-hidden rounded-full bg-line-strong">
+            <div className="h-full bg-gold transition-all" style={{ width: `${progress}%` }} />
           </div>
         </div>
       )}
       <ErrorText error={error} />
 
       {files.length > 0 && (
-        <Card className="divide-y divide-slate-100 !p-0">
+        <Card className="divide-y divide-line !p-0">
           {files.map((f) => (
             <div key={f.id} className="flex items-center gap-3 px-4 py-3">
               <div className="min-w-0 flex-1">
                 <div className="truncate font-medium">{f.original_name}</div>
-                <div className="text-xs text-slate-500">
+                <div className="text-xs text-steel">
                   {formatBytes(f.size_bytes)}
                   {f.conversion_status === "ok" && ` · ${f.page_count} page${f.page_count === 1 ? "" : "s"}`}
                   {f.conversion_status === "pending" && " · preparing…"}
                 </div>
-                {f.error && <div className="mt-0.5 text-xs text-amber-700">{f.error}</div>}
+                {f.error && <div className="mt-0.5 text-xs text-gold-soft">{f.error}</div>}
               </div>
-              {f.conversion_status === "pending" && <Spinner className="h-4 w-4 text-brand-600" />}
+              {f.conversion_status === "pending" && <Spinner className="h-4 w-4 text-gold" />}
               {f.conversion_status === "ok" && job && headers && (
-                <a className="text-sm font-medium text-brand-700" target="_blank" rel="noreferrer" href={`/api/jobs/${job.id}/files/${f.id}/pdf?t=${headers["X-Job-Token"]}`}>
+                <a className="text-sm font-medium text-gold" target="_blank" rel="noreferrer" href={`/api/jobs/${job.id}/files/${f.id}/pdf?t=${headers["X-Job-Token"]}`}>
                   View
                 </a>
               )}
-              <button className="px-2 text-lg text-slate-400" aria-label="Remove" onClick={() => remove(f.id)}>✕</button>
+              <button className="px-2 text-lg text-steel/80" aria-label="Remove" onClick={() => remove(f.id)}>✕</button>
             </div>
           ))}
         </Card>
@@ -222,7 +225,7 @@ function UploadStep({
           <Button variant="secondary" className="!py-4 text-base" disabled={converting || !printable.length} onClick={() => setMode("self")}>
             Print it myself
           </Button>
-          {converting && <p className="text-center text-xs text-slate-500">Preparing your files…</p>}
+          {converting && <p className="text-center text-xs text-steel">Preparing your files…</p>}
         </div>
       )}
 
@@ -238,9 +241,9 @@ function SubmitSheet({ job, token, onClose, onJob }: { job: Job; token: string; 
   const [error, setError] = useState<string | null>(null);
   return (
     <Sheet title="Submit to shop" onClose={onClose}>
-      <p className="mb-3 text-sm text-slate-600">The shop will print your files. Tell them anything special:</p>
+      <p className="mb-3 text-sm text-frost/80">The shop will print your files. Tell them anything special:</p>
       <textarea
-        className="h-28 w-full rounded-lg border border-slate-300 p-3 text-base"
+        className="h-28 w-full rounded-lg border border-line-strong bg-ink p-3 text-base placeholder:text-steel/70 outline-none focus:border-gold focus:ring-2 focus:ring-gold/25"
         placeholder="e.g. 2 copies, colour, stapled, spiral binding…"
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
@@ -305,16 +308,16 @@ function SelfPrintSheet({ job, token, onClose, onJob }: { job: Job; token: strin
       )}
       {step === "pay" && state.plan && (
         <div className="space-y-4">
-          <div className="rounded-xl bg-slate-50 p-4">
+          <div className="rounded-xl bg-midnight p-4">
             <div className="flex justify-between text-sm">
               <span>Total</span>
               <span className="text-xl font-bold">
                 {state.plan.currency} {state.plan.total_price.toFixed(2)}
               </span>
             </div>
-            <div className="text-xs text-slate-500">{state.plan.total_sheets} sheets</div>
+            <div className="text-xs text-steel">{state.plan.total_sheets} sheets</div>
           </div>
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <div className="rounded-xl border border-gold/30 bg-midnight/60 p-4 text-sm text-gold-soft">
             Online payment is coming soon. For now, please <b>pay at the counter</b> when you collect your prints.
           </div>
           <ErrorText error={error} />
@@ -343,15 +346,15 @@ function StatusStep({ job, currency, onNew }: { job: Job; currency: string; onNe
   return (
     <div className="space-y-5">
       <Card className="text-center">
-        <div className="text-sm text-slate-500">Your job number</div>
-        <div className="my-1 text-5xl font-black tracking-wider text-brand-700">{job.code}</div>
-        <div className="text-sm text-slate-500">Show this at the counter</div>
+        <div className="text-sm text-steel">Your job number</div>
+        <div className="my-1 text-5xl font-black tracking-wider text-gold">{job.code}</div>
+        <div className="text-sm text-steel">Show this at the counter</div>
       </Card>
       {job.status === "failed" ? (
-        <Card className="border-red-200 bg-red-50">
-          <div className="font-semibold text-red-800">Something went wrong while printing</div>
-          <div className="mt-1 text-sm text-red-700">{failedRuns[0]?.error ?? "Please ask at the counter."}</div>
-          <div className="mt-2 text-sm text-red-700">Please show your job number at the counter — staff can reprint it.</div>
+        <Card className="border-danger/40 bg-danger/10">
+          <div className="font-semibold text-danger">Something went wrong while printing</div>
+          <div className="mt-1 text-sm text-danger">{failedRuns[0]?.error ?? "Please ask at the counter."}</div>
+          <div className="mt-2 text-sm text-danger">Please show your job number at the counter — staff can reprint it.</div>
         </Card>
       ) : job.status === "cancelled" ? (
         <Card><div className="font-semibold">This job was cancelled by the shop.</div></Card>
@@ -362,24 +365,24 @@ function StatusStep({ job, currency, onNew }: { job: Job; currency: string; onNe
             const current = key === job.status;
             return (
               <div key={key} className="flex items-center gap-3">
-                <span className={`grid h-7 w-7 place-items-center rounded-full text-sm font-bold ${done ? "bg-brand-700 text-white" : "bg-slate-200 text-slate-500"}`}>
+                <span className={`grid h-7 w-7 place-items-center rounded-full text-sm font-bold ${done ? "bg-gold text-midnight" : "bg-line-strong text-steel"}`}>
                   {done ? "✓" : ""}
                 </span>
-                <span className={current ? "font-semibold" : done ? "" : "text-slate-400"}>{label}</span>
-                {current && (job.status === "printing" || job.status === "queued" || job.status === "submitted") && <Spinner className="h-4 w-4 text-brand-600" />}
+                <span className={current ? "font-semibold" : done ? "" : "text-steel/80"}>{label}</span>
+                {current && (job.status === "printing" || job.status === "queued" || job.status === "submitted") && <Spinner className="h-4 w-4 text-gold" />}
               </div>
             );
           })}
         </Card>
       )}
       <Card className="space-y-1 text-sm">
-        <div className="flex justify-between"><span className="text-slate-500">Status</span><Badge tone="teal">{STATUS_LABEL[job.status]}</Badge></div>
-        <div className="flex justify-between"><span className="text-slate-500">Files</span><span>{job.files.length}</span></div>
-        <div className="flex justify-between"><span className="text-slate-500">Pages</span><span>{job.total_pages}</span></div>
+        <div className="flex justify-between"><span className="text-steel">Status</span><Badge tone="teal">{STATUS_LABEL[job.status]}</Badge></div>
+        <div className="flex justify-between"><span className="text-steel">Files</span><span>{job.files.length}</span></div>
+        <div className="flex justify-between"><span className="text-steel">Pages</span><span>{job.total_pages}</span></div>
         {job.mode === "self" && (
-          <div className="flex justify-between"><span className="text-slate-500">Amount</span><span>{currency} {job.estimated_price.toFixed(2)} (pay at counter)</span></div>
+          <div className="flex justify-between"><span className="text-steel">Amount</span><span>{currency} {job.estimated_price.toFixed(2)} (pay at counter)</span></div>
         )}
-        {job.notes && <div className="pt-2 text-slate-600">“{job.notes}”</div>}
+        {job.notes && <div className="pt-2 text-frost/80">“{job.notes}”</div>}
       </Card>
       <Button variant="secondary" className="w-full" onClick={onNew}>Print something else</Button>
     </div>
@@ -388,14 +391,14 @@ function StatusStep({ job, currency, onNew }: { job: Job; currency: string; onNe
 
 function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 sm:items-center" onClick={onClose}>
+    <div className="fixed inset-0 z-40 flex items-end justify-center bg-deep/75 sm:items-center" onClick={onClose}>
       <div
-        className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-5 pb-8 shadow-xl sm:rounded-3xl"
+        className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-ink p-5 pb-8 shadow-2xl shadow-black/50 ring-1 ring-line sm:rounded-3xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-bold">{title}</h2>
-          <button className="px-2 text-2xl text-slate-400" onClick={onClose} aria-label="Close">×</button>
+          <button className="px-2 text-2xl text-steel/80" onClick={onClose} aria-label="Close">×</button>
         </div>
         {children}
       </div>

@@ -25,7 +25,7 @@ export default function UpdateBanner({ isOwner }: { isOwner: boolean }) {
   if (!info?.supported || (!info.available && info.state !== "error")) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-3 bg-brand-700 px-6 py-2 text-sm text-white print:hidden">
+    <div className="flex flex-wrap items-center gap-3 bg-gold px-6 py-2 text-sm text-midnight print:hidden">
       {info.state === "downloading" || info.state === "installing" ? (
         <span>Installing ScanToPrint {info.available}… the app will restart in a moment.</span>
       ) : info.state === "error" ? (
@@ -51,7 +51,7 @@ export default function UpdateBanner({ isOwner }: { isOwner: boolean }) {
           ) : (
             <span className="opacity-80">Ask the owner to install it.</span>
           )}
-          {error && <span className="rounded bg-white/20 px-2">{error}</span>}
+          {error && <span className="rounded bg-midnight/15 px-2">{error}</span>}
         </>
       )}
     </div>

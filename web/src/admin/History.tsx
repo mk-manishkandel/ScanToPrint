@@ -25,21 +25,21 @@ export default function History() {
       <div className="flex flex-wrap gap-3">
         <Input className="max-w-xs" placeholder="Search code, name or phone" value={q} onChange={(e) => setQ(e.target.value)} />
         <Input className="max-w-48" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-        <div className="self-center text-sm text-slate-500">{jobs.length} jobs · {pages} pages</div>
+        <div className="self-center text-sm text-steel">{jobs.length} jobs · {pages} pages</div>
       </div>
       <ErrorText error={error} />
       <Card className="overflow-x-auto !p-0">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-slate-500">
+          <thead className="bg-midnight text-left text-steel">
             <tr>
               <th className="px-4 py-2">Code</th><th>Customer</th><th>When</th><th>Type</th><th>Files</th><th>Pages</th><th>Amount</th><th>Status</th>
             </tr>
           </thead>
           <tbody>
             {jobs.map((j) => (
-              <tr key={j.id} className="border-t border-slate-100 hover:bg-slate-50">
-                <td className="px-4 py-2 font-bold text-brand-700"><Link to={`/admin/jobs/${j.id}`}>{j.code}</Link></td>
-                <td>{j.customer_name ?? "—"} <span className="text-slate-400">{j.customer_phone}</span></td>
+              <tr key={j.id} className="border-t border-line hover:bg-navy-hover">
+                <td className="px-4 py-2 font-bold text-gold"><Link to={`/admin/jobs/${j.id}`}>{j.code}</Link></td>
+                <td>{j.customer_name ?? "—"} <span className="text-steel/80">{j.customer_phone}</span></td>
                 <td>{new Date(j.created_at).toLocaleString()}</td>
                 <td>{j.mode === "self" ? "Self" : "Submit"}</td>
                 <td>{j.files.length}</td>

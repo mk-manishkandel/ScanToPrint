@@ -29,12 +29,12 @@ export default function JobDetail() {
 
   return (
     <div className="space-y-5">
-      <Link to="/admin" className="text-sm text-brand-700">← Back to queue</Link>
+      <Link to="/admin" className="text-sm text-gold">← Back to queue</Link>
       <div className="flex flex-wrap items-center gap-4">
-        <div className="text-4xl font-black text-brand-700">{job.code}</div>
+        <div className="text-4xl font-black text-gold">{job.code}</div>
         <div>
           <div className="font-semibold">{job.customer_name || "Walk-in customer"}</div>
-          <div className="text-sm text-slate-500">
+          <div className="text-sm text-steel">
             {job.customer_phone} {new Date(job.created_at).toLocaleString()} · {job.mode === "self" ? "Self-print" : "Submitted for print"}
           </div>
         </div>
@@ -45,17 +45,17 @@ export default function JobDetail() {
           <Button variant="secondary" onClick={() => setStatus("collected")}>Collected</Button>
         </div>
       </div>
-      {job.notes && <div className="rounded-xl bg-amber-50 px-4 py-3 text-amber-900">Customer note: “{job.notes}”</div>}
+      {job.notes && <div className="rounded-xl bg-ink px-4 py-3 text-gold-soft ring-1 ring-gold/30">Customer note: “{job.notes}”</div>}
       <ErrorText error={error} />
 
-      <Card className="divide-y divide-slate-100 !p-0">
+      <Card className="divide-y divide-line !p-0">
         {job.files.map((f) => (
           <div key={f.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
             <div className="min-w-0 flex-1">
               <div className="truncate font-medium">{f.original_name}</div>
-              <div className="text-xs text-slate-500">
+              <div className="text-xs text-steel">
                 {formatBytes(f.size_bytes)} {f.page_count ? `· ${f.page_count} page${f.page_count === 1 ? "" : "s"}` : ""}
-                {f.error && <span className="text-amber-700"> · {f.error}</span>}
+                {f.error && <span className="text-gold-soft"> · {f.error}</span>}
               </div>
             </div>
             {f.conversion_status === "ok" && (
@@ -76,19 +76,19 @@ export default function JobDetail() {
         ))}
       </Card>
       {preview && (
-        <iframe title="preview" src={`/api/admin/files/${preview}/pdf`} className="h-[75vh] w-full rounded-2xl bg-white ring-1 ring-slate-200" />
+        <iframe title="preview" src={`/api/admin/files/${preview}/pdf`} className="h-[75vh] w-full rounded-2xl bg-deep ring-1 ring-line" />
       )}
 
       {!!job.runs?.length && (
         <Card>
           <h2 className="mb-3 font-semibold">Print history</h2>
           <table className="w-full text-sm">
-            <thead className="text-left text-slate-500">
+            <thead className="text-left text-steel">
               <tr><th>File</th><th>Printer</th><th>Settings</th><th>By</th><th>Status</th></tr>
             </thead>
             <tbody>
               {job.runs.map((r) => (
-                <tr key={r.id} className="border-t border-slate-100">
+                <tr key={r.id} className="border-t border-line">
                   <td className="py-2">{job.files.find((f) => f.id === r.file_id)?.original_name}</td>
                   <td>{r.printer_name ?? "—"}</td>
                   <td>
@@ -97,7 +97,7 @@ export default function JobDetail() {
                   <td className="capitalize">{r.triggered_by}</td>
                   <td>
                     <Badge tone={r.status === "done" ? "green" : r.status === "failed" ? "red" : "blue"}>{r.status}</Badge>
-                    {r.error && <div className="text-xs text-red-700">{r.error}</div>}
+                    {r.error && <div className="text-xs text-danger">{r.error}</div>}
                   </td>
                 </tr>
               ))}
@@ -122,8 +122,8 @@ function PrintDialog({ job, onClose, onDone }: { job: Job; onClose: () => void; 
   const quote = useCallback((body: unknown) => api.post<PrintPlan>(`/api/admin/jobs/${job.id}/quote`, body), [job.id]);
 
   return (
-    <div className="fixed inset-0 z-40 grid place-items-center bg-black/40 p-4" onClick={onClose}>
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-40 grid place-items-center bg-deep/75 p-4" onClick={onClose}>
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-ink p-6 shadow-2xl shadow-black/50 ring-1 ring-line" onClick={(e) => e.stopPropagation()}>
         <h2 className="mb-4 text-xl font-bold">Print job {job.code}</h2>
         {!printers && !error && <Spinner />}
         {printers && printers.length === 0 && <ErrorText error="No active printers. Turn one on in Printers." />}

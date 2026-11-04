@@ -28,14 +28,14 @@ export default function Users() {
     <div className="max-w-3xl space-y-6">
       <h1 className="text-2xl font-bold">Staff accounts</h1>
       <ErrorText error={error} />
-      <Card className="divide-y divide-slate-100 !p-0">
+      <Card className="divide-y divide-line !p-0">
         {users.map((u) => (
           <div key={u.id} className="flex items-center gap-3 px-5 py-3">
             <div className="flex-1">
               <div className="font-medium">
-                {u.name} {u.id === me.id && <span className="text-xs text-slate-400">(you)</span>}
+                {u.name} {u.id === me.id && <span className="text-xs text-steel/80">(you)</span>}
               </div>
-              <div className="text-sm text-slate-500">@{u.username}</div>
+              <div className="text-sm text-steel">@{u.username}</div>
             </div>
             <Badge tone={u.role === "owner" ? "teal" : "slate"}>{u.role}</Badge>
             {!u.active && <Badge tone="red">disabled</Badge>}
@@ -55,7 +55,7 @@ export default function Users() {
                 </Button>
                 <Button
                   variant="ghost"
-                  className="!text-red-600"
+                  className="!text-danger"
                   onClick={() => confirm(`Delete ${u.name}?`) && run(() => api.del(`/api/admin/users/${u.id}`))}
                 >
                   Delete
@@ -79,7 +79,7 @@ export default function Users() {
           </Field>
           <Field label="Role">
             <select
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5"
+              className="w-full rounded-lg border border-line-strong bg-ink px-3 py-2.5"
               value={form.role}
               onChange={(e) => setForm({ ...form, role: e.target.value })}
             >

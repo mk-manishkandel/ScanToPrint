@@ -44,14 +44,14 @@ export default function Printers() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Printers</h1>
-          <p className="text-sm text-slate-500">Turn on the printers you use. Customers only see printers with “Customers can self-print”.</p>
+          <p className="text-sm text-steel">Turn on the printers you use. Customers only see printers with “Customers can self-print”.</p>
         </div>
         <Button onClick={scan} disabled={scanning}>{scanning ? "Scanning…" : "Scan for printers"}</Button>
       </div>
-      {info && <p className="rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-800">{info}</p>}
+      {info && <p className="rounded-lg bg-midnight/60 px-3 py-2 text-sm text-gold-soft ring-1 ring-gold/25">{info}</p>}
       <ErrorText error={error} />
       {printers.length === 0 && (
-        <Card className="text-center text-slate-500">
+        <Card className="text-center text-steel">
           No printers yet. Install your printer in Windows first, then click <b>Scan for printers</b>.
         </Card>
       )}
@@ -63,9 +63,9 @@ export default function Printers() {
               defaultValue={p.display_name}
               onBlur={(e) => e.target.value !== p.display_name && patch(p.id, { display_name: e.target.value })}
             />
-            <span className="text-xs text-slate-500">Windows name: {p.system_name}</span>
+            <span className="text-xs text-steel">Windows name: {p.system_name}</span>
             {!p.installed && <Badge tone="red">not found in Windows</Badge>}
-            <Button variant="ghost" className="ml-auto !text-red-600" onClick={() => confirm(`Remove ${p.display_name}?`) && api.del(`/api/admin/printers/${p.id}`).then(load)}>
+            <Button variant="ghost" className="ml-auto !text-danger" onClick={() => confirm(`Remove ${p.display_name}?`) && api.del(`/api/admin/printers/${p.id}`).then(load)}>
               Remove
             </Button>
           </div>
@@ -76,7 +76,7 @@ export default function Printers() {
             <Check label="Double-sided" checked={p.supports_duplex} onChange={(v) => patch(p.id, { supports_duplex: v })} />
           </div>
           <div className="flex flex-wrap items-center gap-3 text-sm">
-            <span className="text-slate-500">Paper:</span>
+            <span className="text-steel">Paper:</span>
             {PAPERS.map((s) => (
               <Check
                 key={s}
@@ -98,7 +98,7 @@ export default function Printers() {
 function Check({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <label className="inline-flex cursor-pointer items-center gap-2">
-      <input type="checkbox" className="h-4 w-4 accent-brand-700" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <input type="checkbox" className="h-4 w-4 accent-gold" checked={checked} onChange={(e) => onChange(e.target.checked)} />
       {label}
     </label>
   );

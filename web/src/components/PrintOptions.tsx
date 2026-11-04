@@ -83,17 +83,17 @@ export function PrintOptions({
   return (
     <div className="space-y-5">
       <div>
-        <div className="mb-2 text-sm font-medium text-slate-700">Printer</div>
+        <div className="mb-2 text-sm font-medium text-frost">Printer</div>
         <div className="grid gap-2 sm:grid-cols-2">
           {printers.map((p) => (
             <button
               key={p.id}
               type="button"
               onClick={() => setPrinterId(p.id)}
-              className={`rounded-xl border-2 p-3 text-left ${p.id === printerId ? "border-brand-600 bg-brand-50" : "border-slate-200 bg-white"}`}
+              className={`rounded-xl border-2 p-3 text-left ${p.id === printerId ? "border-gold bg-navy-hover" : "border-line bg-ink"}`}
             >
               <div className="font-semibold">{p.display_name}</div>
-              <div className="text-xs text-slate-500">
+              <div className="text-xs text-steel">
                 {p.supports_color ? "Colour & B/W" : "Black & white"} · {p.supports_duplex ? "Double-sided" : "Single-sided"}
               </div>
             </button>
@@ -106,43 +106,43 @@ export function PrintOptions({
         if (!it) return null;
         const line = plan?.items.find((p) => p.file_id === f.id);
         return (
-          <div key={f.id} className={`rounded-xl border p-4 ${it.include ? "border-slate-200 bg-white" : "border-dashed border-slate-300 bg-slate-50"}`}>
+          <div key={f.id} className={`rounded-xl border p-4 ${it.include ? "border-line bg-ink" : "border-dashed border-line-strong bg-midnight"}`}>
             <label className="flex items-start gap-3">
-              <input type="checkbox" className="mt-1 h-5 w-5 accent-brand-700" checked={it.include} onChange={(e) => update(f.id, { include: e.target.checked })} />
+              <input type="checkbox" className="mt-1 h-5 w-5 accent-gold" checked={it.include} onChange={(e) => update(f.id, { include: e.target.checked })} />
               <div className="min-w-0 flex-1">
                 <div className="truncate font-medium">{f.original_name}</div>
-                <div className="text-xs text-slate-500">{f.page_count} page{f.page_count === 1 ? "" : "s"}</div>
+                <div className="text-xs text-steel">{f.page_count} page{f.page_count === 1 ? "" : "s"}</div>
               </div>
               {line && (
-                <div className="text-right text-sm font-semibold text-brand-700">
+                <div className="text-right text-sm font-semibold text-gold">
                   {plan!.currency} {line.quote.price.toFixed(2)}
                 </div>
               )}
             </label>
             {it.include && (
               <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <label className="col-span-2 text-xs font-medium text-slate-600">
+                <label className="col-span-2 text-xs font-medium text-frost/80">
                   Pages
                   <input
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-base"
+                    className="mt-1 w-full rounded-lg border border-line-strong bg-ink px-3 py-2 text-base"
                     placeholder={`All (1-${f.page_count})`}
                     inputMode="numeric"
                     value={it.page_range}
                     onChange={(e) => update(f.id, { page_range: e.target.value })}
                   />
                 </label>
-                <label className="text-xs font-medium text-slate-600">
+                <label className="text-xs font-medium text-frost/80">
                   Copies
-                  <div className="mt-1 flex items-center rounded-lg border border-slate-300">
+                  <div className="mt-1 flex items-center rounded-lg border border-line-strong">
                     <button type="button" className="px-3 py-2 text-lg" onClick={() => update(f.id, { copies: Math.max(1, it.copies - 1) })}>−</button>
                     <span className="flex-1 text-center text-base">{it.copies}</span>
                     <button type="button" className="px-3 py-2 text-lg" onClick={() => update(f.id, { copies: Math.min(100, it.copies + 1) })}>+</button>
                   </div>
                 </label>
-                <label className="text-xs font-medium text-slate-600">
+                <label className="text-xs font-medium text-frost/80">
                   Paper
                   <select
-                    className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-2.5 text-base"
+                    className="mt-1 w-full rounded-lg border border-line-strong bg-ink px-2 py-2.5 text-base"
                     value={it.paper_size}
                     onChange={(e) => update(f.id, { paper_size: e.target.value })}
                   >
@@ -164,7 +164,7 @@ export function PrintOptions({
       })}
 
       <ErrorText error={error} />
-      <div className="flex items-center justify-between rounded-xl bg-slate-900 px-4 py-3 text-white">
+      <div className="flex items-center justify-between rounded-xl bg-deep px-4 py-3 text-frost">
         <div className="text-sm">
           {plan ? `${plan.total_sheets} sheet${plan.total_sheets === 1 ? "" : "s"}` : "—"}
           {loading && <Spinner className="ml-2 h-3 w-3" />}
@@ -180,7 +180,7 @@ function Toggle({ label, offLabel, on, onClick }: { label: string; offLabel: str
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-lg border px-3 py-2 text-sm font-medium ${on ? "border-brand-600 bg-brand-700 text-white" : "border-slate-300 bg-white text-slate-700"}`}
+      className={`rounded-lg border px-3 py-2 text-sm font-medium ${on ? "border-gold bg-gold text-midnight" : "border-line-strong bg-ink text-frost"}`}
     >
       {on ? label : offLabel}
     </button>

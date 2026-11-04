@@ -59,6 +59,28 @@ These keep auto-updates safe for every shop running ScanToPrint:
 - New settings go in `crates/core/src/settings.rs` with a default value, so no migration is needed.
 - Customer endpoints must always check the job token (`authorize` in `http/customer.rs`).
 
+## Design: Royal Navy & Gold
+
+The UI uses one dark palette, defined as Tailwind tokens in `web/src/index.css`. Use these token classes (for example `bg-ink`, `text-steel`, `border-line`), not raw Tailwind colours such as `slate-*` or `red-*`.
+
+| Token | Hex | Use |
+|---|---|---|
+| `midnight` | `#0B1426` | Main page background |
+| `ink` | `#16233D` | Cards, panels, form fields |
+| `deep` | `#070E1C` | Deepest areas: sidebar, overlays, loading |
+| `frost` | `#EEF0F5` | Main text and headings (`frost/80` for body text) |
+| `steel` | `#8A94A8` | Secondary text, labels, captions |
+| `gold` | `#D4AF6A` | Accent: primary buttons, links, highlights, logo |
+| `gold-soft` | `#E6CC97` | Gold on hover |
+| `cobalt` | `#365496` | Soft background glows only, never text |
+| `danger` | `#E0796B` | Errors and invalid fields |
+| `navy-hover` | `#1C2C4B` | Hover colour for navy cards |
+| `line` / `line-strong` | frost at 12% / 24% | Dividers and borders |
+
+- Text on a gold background is `text-midnight`, never white.
+- For gold glows, rings and borders, use gold at 4–40% opacity (`ring-gold/25`). Avoid gold-tinted *fills* on navy, because they look muddy; use `bg-midnight/60` with a gold ring instead.
+- The printed QR poster must stay black on white (`print:` classes), so it doesn't waste toner.
+
 ## Commit signing
 
 `main` only accepts signed commits. If you open a PR, a maintainer squash-merges it and GitHub signs the merge commit, so you don't need to set up signing yourself.

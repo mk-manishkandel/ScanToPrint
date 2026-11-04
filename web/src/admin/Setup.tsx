@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { api, type User } from "../api";
-import { Button, Card, ErrorText, Field, Input } from "../components/ui";
+import { Button, Card, ErrorText, Field, Input, Logo } from "../components/ui";
 
 /** First run: create the shop and the owner account. */
 export default function Setup({ onDone }: { onDone: (u: User) => void }) {
@@ -25,10 +25,11 @@ export default function Setup({ onDone }: { onDone: (u: User) => void }) {
   }
 
   return (
-    <div className="grid min-h-screen place-items-center bg-slate-100 p-4">
+    <div className="grid min-h-screen place-items-center p-4">
       <Card className="w-full max-w-md">
-        <h1 className="text-2xl font-bold text-brand-700">Welcome to ScanToPrint</h1>
-        <p className="mb-6 mt-1 text-sm text-slate-600">
+        <Logo className="mb-3 h-12 w-12" />
+        <h1 className="text-2xl font-bold text-gold">Welcome to ScanToPrint</h1>
+        <p className="mb-6 mt-1 text-sm text-frost/80">
           Let's set up your shop. You'll add printers and print your QR poster next.
         </p>
         <form onSubmit={submit} className="space-y-4">

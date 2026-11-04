@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { api, type User } from "../api";
-import { Button, Card, ErrorText, Field, Input } from "../components/ui";
+import { Button, Card, ErrorText, Field, Input, Logo } from "../components/ui";
 
 export default function Login({ onDone }: { onDone: (u: User) => void }) {
   const [username, setUsername] = useState("");
@@ -22,10 +22,11 @@ export default function Login({ onDone }: { onDone: (u: User) => void }) {
   }
 
   return (
-    <div className="grid min-h-screen place-items-center bg-slate-100 p-4">
+    <div className="grid min-h-screen place-items-center p-4">
       <Card className="w-full max-w-sm">
-        <h1 className="text-xl font-bold text-brand-700">ScanToPrint</h1>
-        <p className="mb-5 text-sm text-slate-500">Staff login</p>
+        <Logo className="mb-3 h-12 w-12" />
+        <h1 className="text-xl font-bold text-gold">ScanToPrint</h1>
+        <p className="mb-5 text-sm text-steel">Staff login</p>
         <form onSubmit={submit} className="space-y-4">
           <Field label="Username">
             <Input autoFocus autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} />

@@ -31,7 +31,7 @@ export default function QrPoster() {
     <div className="space-y-5">
       <div className="print:hidden">
         <h1 className="text-2xl font-bold">QR poster</h1>
-        <p className="text-sm text-slate-500">Print this and place it at the counter. Customers must be on the shop Wi-Fi.</p>
+        <p className="text-sm text-steel">Print this and place it at the counter. Customers must be on the shop Wi-Fi.</p>
       </div>
       <div className="grid gap-4 print:hidden lg:grid-cols-2">
         <Card className="space-y-2 text-sm">
@@ -43,7 +43,7 @@ export default function QrPoster() {
             {sys.libreoffice ? <Badge tone="green">LibreOffice found</Badge> : (
               <span>
                 <Badge tone="amber">LibreOffice not installed</Badge>{" "}
-                <a className="text-brand-700 underline" href="https://www.libreoffice.org/download/download-libreoffice/" target="_blank" rel="noreferrer">Download</a>
+                <a className="text-gold underline" href="https://www.libreoffice.org/download/download-libreoffice/" target="_blank" rel="noreferrer">Download</a>
               </span>
             )}
           </Row>
@@ -55,27 +55,27 @@ export default function QrPoster() {
           {sys.portal_urls.length === 0 ? (
             <ErrorText error="This PC isn't connected to a network. Connect it to the shop Wi-Fi/router." />
           ) : (
-            <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={url} onChange={(e) => setUrl(e.target.value)}>
+            <select className="w-full rounded-lg border border-line-strong bg-ink px-3 py-2" value={url} onChange={(e) => setUrl(e.target.value)}>
               {sys.portal_urls.map((u) => <option key={u}>{u}</option>)}
             </select>
           )}
-          <p className="text-slate-500">
+          <p className="text-steel">
             Tip: in your router settings, <b>reserve this IP address</b> for this PC so the QR code keeps working after restarts.
           </p>
           <Button onClick={() => window.print()} disabled={!url}>Print poster</Button>
         </Card>
       </div>
       {url && (
-        <div className="mx-auto max-w-xl rounded-3xl bg-white p-10 text-center shadow-sm ring-1 ring-slate-200 print:max-w-none print:shadow-none print:ring-0">
+        <div className="mx-auto max-w-xl rounded-3xl bg-ink p-10 text-center ring-1 ring-gold/25 print:max-w-none print:bg-white print:text-black print:ring-0">
           <div className="text-3xl font-black">{shop?.shop_name}</div>
-          <div className="mt-2 text-xl font-semibold text-brand-700">Scan to print your documents</div>
-          <img className="mx-auto my-6 w-80" alt="QR code" src={`/api/admin/qr.svg?url=${encodeURIComponent(url)}`} />
+          <div className="mt-2 text-xl font-semibold text-gold print:text-black">Scan to print your documents</div>
+          <img className="mx-auto my-6 w-80 rounded-2xl bg-white p-3" alt="QR code" src={`/api/admin/qr.svg?url=${encodeURIComponent(url)}`} />
           <ol className="mx-auto max-w-sm space-y-1 text-left text-lg">
             <li>1. Connect to our Wi-Fi</li>
             <li>2. Scan this code with your camera</li>
             <li>3. Upload your files — submit or print yourself</li>
           </ol>
-          <div className="mt-6 text-sm text-slate-500">or open {url}</div>
+          <div className="mt-6 text-sm text-steel">or open {url}</div>
         </div>
       )}
     </div>
@@ -85,7 +85,7 @@ export default function QrPoster() {
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-4">
-      <span className="text-slate-500">{label}</span>
+      <span className="text-steel">{label}</span>
       <span className="text-right">{children}</span>
     </div>
   );

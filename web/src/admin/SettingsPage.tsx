@@ -76,7 +76,7 @@ export default function SettingsPage() {
         <Button onClick={save} disabled={busy}>
           {busy ? "Saving…" : "Save settings"}
         </Button>
-        {saved && <span className="text-sm text-green-700">Saved ✓</span>}
+        {saved && <span className="text-sm text-gold">Saved ✓</span>}
       </div>
     </div>
   );

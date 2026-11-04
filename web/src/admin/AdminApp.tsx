@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { api, ApiError, type User } from "../api";
-import { Button, Spinner } from "../components/ui";
+import { Button, Logo, Spinner } from "../components/ui";
 import Login from "./Login";
 import Setup from "./Setup";
 import SettingsPage from "./SettingsPage";
@@ -43,7 +43,7 @@ export default function AdminApp() {
 
   if (state.kind === "loading")
     return (
-      <div className="grid min-h-screen place-items-center text-brand-700">
+      <div className="grid min-h-screen place-items-center text-gold">
         <Spinner className="h-8 w-8" />
       </div>
     );
@@ -78,8 +78,11 @@ function Shell() {
   ];
   return (
     <div className="flex min-h-screen">
-      <aside className="flex w-56 print:hidden shrink-0 flex-col bg-slate-900 text-slate-200">
-        <div className="px-5 py-5 text-lg font-bold text-white">ScanToPrint</div>
+      <aside className="flex w-56 print:hidden shrink-0 flex-col border-r border-line bg-deep text-frost/85">
+        <div className="flex items-center gap-2.5 px-5 py-5 text-lg font-bold text-frost">
+          <Logo className="h-8 w-8" />
+          ScanToPrint
+        </div>
         <nav className="flex-1 space-y-1 px-3">
           {links.map((l) => (
             <NavLink
@@ -87,17 +90,17 @@ function Shell() {
               to={l.to}
               end={l.end}
               className={({ isActive }) =>
-                `block rounded-lg px-3 py-2 text-sm font-medium ${isActive ? "bg-brand-700 text-white" : "hover:bg-slate-800"}`
+                `block rounded-lg px-3 py-2 text-sm font-medium ${isActive ? "bg-gold text-midnight" : "hover:bg-navy-hover"}`
               }
             >
               {l.label}
             </NavLink>
           ))}
         </nav>
-        <div className="border-t border-slate-800 p-4 text-sm">
-          <div className="font-medium text-white">{user.name}</div>
-          <div className="text-xs capitalize text-slate-400">{user.role}</div>
-          <Button variant="ghost" className="mt-2 w-full !text-slate-300 hover:!bg-slate-800" onClick={logout}>
+        <div className="border-t border-line p-4 text-sm">
+          <div className="font-medium text-frost">{user.name}</div>
+          <div className="text-xs capitalize text-steel/80">{user.role}</div>
+          <Button variant="ghost" className="mt-2 w-full !text-steel hover:!bg-navy-hover" onClick={logout}>
             Log out
           </Button>
         </div>
