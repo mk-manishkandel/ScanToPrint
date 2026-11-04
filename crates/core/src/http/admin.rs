@@ -27,6 +27,8 @@ pub fn routes() -> Router<AppState> {
         .route("/api/admin/files/{fid}/original", get(file_original))
         .route("/api/admin/files/{fid}/pdf", get(file_pdf))
         .route("/api/admin/files/{fid}/open", post(open_on_pc))
+        .route("/api/admin/files/{fid}/reveal", post(show_in_folder))
+        .route("/api/admin/storage/open", post(open_storage))
         .route("/api/admin/files/{fid}/reconvert", post(reconvert))
         .route("/api/admin/printers", get(list_printers))
         .route("/api/admin/printers/scan", post(scan_printers))
@@ -98,10 +100,10 @@ async fn list_jobs(
 
     let mut out = Vec::with_capacity(jobs.len());
     for job in jobs {
-        let files = sqlx::query_as(
-            "SELECT id, original_name, mime, size_bytes, page_count, conversion_status, error
-             FROM job_files WHERE job_id = ? ORDER BY id",
-        )
+        let files = sqlx::query_as(&format!(
+            "SELECT {} FROM job_files WHERE job_id = ? ORDER BY id",
+            models::FILE_COLS
+        ))
         .bind(job.id)
         .fetch_all(&st.db)
         .await?;
@@ -207,7 +209,7 @@ async fn file_original(
         .first_or_octet_stream()
         .to_string();
     super::files::send_file(
-        &storage::storage_root(&st.config.data_dir).join(orig),
+        &storage::resolve(&st.config.data_dir, &orig),
         &mime,
         Some(&name),
     )
@@ -222,7 +224,7 @@ async fn file_pdf(
     let (_, _, pdf) = file_paths(&st, fid).await?;
     let pdf = pdf.ok_or(AppError::NotFound)?;
     super::files::send_file(
-        &storage::storage_root(&st.config.data_dir).join(pdf),
+        &storage::resolve(&st.config.data_dir, &pdf),
         "application/pdf",
         None,
     )
@@ -236,36 +238,87 @@ async fn open_on_pc(
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     Path(fid): Path<i64>,
 ) -> AppResult<Json<Value>> {
+    let path = local_file(&st, addr, fid).await?;
+    launch(&path, false)?;
+    Ok(Json(json!({ "ok": true })))
+}
+
+/// Opens the job's folder in Explorer with the file selected. Only from the shop PC itself.
+async fn show_in_folder(
+    State(st): State<AppState>,
+    _: Staff,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    Path(fid): Path<i64>,
+) -> AppResult<Json<Value>> {
+    let path = local_file(&st, addr, fid).await?;
+    launch(&path, true)?;
+    Ok(Json(json!({ "ok": true })))
+}
+
+/// Opens the folder where customer files are kept. Only from the shop PC itself.
+async fn open_storage(
+    State(st): State<AppState>,
+    _: Staff,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+) -> AppResult<Json<Value>> {
+    if !addr.ip().is_loopback() {
+        return Err(bad("The folder can only be opened on the shop computer."));
+    }
+    let dir = storage::storage_root(&st.config.data_dir);
+    std::fs::create_dir_all(&dir).map_err(|e| AppError::Internal(e.into()))?;
+    launch(&dir, false)?;
+    Ok(Json(json!({ "ok": true })))
+}
+
+async fn local_file(st: &AppState, addr: SocketAddr, fid: i64) -> AppResult<std::path::PathBuf> {
     if !addr.ip().is_loopback() {
         return Err(bad(
             "Files can only be opened this way on the shop computer. Use Download instead.",
         ));
     }
-    let (_, orig, _) = file_paths(&st, fid).await?;
-    let path = storage::storage_root(&st.config.data_dir).join(orig);
-    if !path.exists() {
+    let (_, orig, _) = file_paths(st, fid).await?;
+    let path = storage::resolve(&st.config.data_dir, &orig);
+    if !path.is_file() {
         return Err(AppError::NotFound);
     }
+    Ok(path)
+}
+
+/// Open `path` with its default app, or (`reveal`) show it selected in the file manager.
+fn launch(path: &std::path::Path, reveal: bool) -> AppResult<()> {
     #[cfg(windows)]
     let mut cmd = {
         let mut c = tokio::process::Command::new("explorer.exe");
-        c.arg(&path);
+        if reveal {
+            // Explorer parses its own command line: `/select,"C:\path\file"` must be one
+            // argument with the quotes exactly here, so pass it raw.
+            c.raw_arg(format!("/select,\"{}\"", path.display()));
+        } else {
+            c.arg(path);
+        }
         c
     };
     #[cfg(target_os = "macos")]
     let mut cmd = {
         let mut c = tokio::process::Command::new("open");
-        c.arg(&path);
+        if reveal {
+            c.arg("-R");
+        }
+        c.arg(path);
         c
     };
     #[cfg(not(any(windows, target_os = "macos")))]
     let mut cmd = {
         let mut c = tokio::process::Command::new("xdg-open");
-        c.arg(&path);
+        c.arg(if reveal {
+            path.parent().unwrap_or(path)
+        } else {
+            path
+        });
         c
     };
     cmd.spawn().map_err(|e| AppError::Internal(e.into()))?;
-    Ok(Json(json!({ "ok": true })))
+    Ok(())
 }
 
 /// Try converting a file again (e.g. after installing LibreOffice).
@@ -300,7 +353,7 @@ async fn list_printers(State(st): State<AppState>, _: Staff) -> AppResult<Json<V
             .map(|p| {
                 let mut v = serde_json::to_value(&p).unwrap_or_default();
                 v["paper_sizes"] = json!(p.papers());
-                v["installed"] = json!(installed.contains(&p.system_name));
+                v["installed"] = json!(installed.iter().any(|s| s.name == p.system_name));
                 v
             })
             .collect(),
@@ -309,20 +362,25 @@ async fn list_printers(State(st): State<AppState>, _: Staff) -> AppResult<Json<V
 
 /// Adds any newly installed Windows printers (inactive until the owner turns them on).
 async fn scan_printers(State(st): State<AppState>, _: Owner) -> AppResult<Json<Value>> {
-    let names = printers::list_system_printers()
+    let found = printers::list_system_printers()
         .await
         .map_err(|e| bad(format!("Couldn't read the printer list: {e}")))?;
     let mut added = 0;
-    for name in &names {
-        let r =
-            sqlx::query("INSERT OR IGNORE INTO printers(system_name, display_name) VALUES (?, ?)")
-                .bind(name)
-                .bind(name)
-                .execute(&st.db)
-                .await?;
+    for p in &found {
+        // New printers start with what Windows reports; existing ones keep the owner's choices.
+        let r = sqlx::query(
+            "INSERT OR IGNORE INTO printers(system_name, display_name, supports_color, supports_duplex)
+             VALUES (?, ?, ?, ?)",
+        )
+        .bind(&p.name)
+        .bind(&p.name)
+        .bind(p.color)
+        .bind(p.duplex)
+        .execute(&st.db)
+        .await?;
         added += r.rows_affected();
     }
-    Ok(Json(json!({ "found": names.len(), "added": added })))
+    Ok(Json(json!({ "found": found.len(), "added": added })))
 }
 
 #[derive(Deserialize)]

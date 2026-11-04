@@ -27,3 +27,7 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 *.tsbuildinfo
+
+# Local AI-assistant skills (third-party, installed per machine)
+.claude/
+skills-lock.json

@@ -34,6 +34,20 @@ pub struct JobFile {
     pub page_count: Option<i64>,
     pub conversion_status: String,
     pub error: Option<String>,
+    /// The customer's requested print options (JSON), shown to staff and pre-filled when printing.
+    #[serde(serialize_with = "raw_json")]
+    pub request: Option<String>,
+}
+
+/// Columns for `JobFile`; use with `SELECT {FILE_COLS} FROM job_files ...`.
+pub const FILE_COLS: &str =
+    "id, original_name, mime, size_bytes, page_count, conversion_status, error, request";
+
+fn raw_json<S: serde::Serializer>(v: &Option<String>, s: S) -> Result<S::Ok, S::Error> {
+    let parsed = v
+        .as_deref()
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(t).ok());
+    serde::Serialize::serialize(&parsed, s)
 }
 
 #[derive(Debug, Clone, Serialize, sqlx::FromRow)]
@@ -67,10 +81,9 @@ pub async fn job_detail(db: &SqlitePool, id: i64) -> AppResult<JobDetail> {
         .bind(id)
         .fetch_one(db)
         .await?;
-    let files = sqlx::query_as(
-        "SELECT id, original_name, mime, size_bytes, page_count, conversion_status, error
-         FROM job_files WHERE job_id = ? ORDER BY id",
-    )
+    let files = sqlx::query_as(&format!(
+        "SELECT {FILE_COLS} FROM job_files WHERE job_id = ? ORDER BY id"
+    ))
     .bind(id)
     .fetch_all(db)
     .await?;
@@ -121,7 +134,7 @@ fn a4() -> String {
     "A4".into()
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrintItem {
     pub file_id: i64,
     #[serde(default)]
@@ -152,11 +165,66 @@ pub struct PlannedItem {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct PrintPlan {
-    pub printer_id: i64,
+    /// None for an estimate (customer submitting to the shop; staff pick the printer later).
+    pub printer_id: Option<i64>,
     pub items: Vec<PlannedItem>,
     pub total_sheets: u32,
     pub total_price: f64,
     pub currency: String,
+}
+
+/// What a print may use: one printer's abilities, or (for an estimate) the whole shop's.
+#[derive(Debug, Clone)]
+pub struct Capabilities {
+    pub color: bool,
+    pub duplex: bool,
+    pub papers: Vec<String>,
+}
+
+impl Capabilities {
+    pub fn of(p: &Printer) -> Self {
+        Self {
+            color: p.supports_color,
+            duplex: p.supports_duplex,
+            papers: p.papers(),
+        }
+    }
+
+    /// Everything any active printer can do. With no printers set up yet, allow all options
+    /// so customers can still say what they want; staff decide when printing.
+    pub async fn shop(db: &SqlitePool) -> AppResult<Self> {
+        let printers: Vec<Printer> = sqlx::query_as(&format!(
+            "SELECT {PRINTER_COLS} FROM printers WHERE is_active = 1"
+        ))
+        .fetch_all(db)
+        .await?;
+        if printers.is_empty() {
+            return Ok(Self {
+                color: true,
+                duplex: true,
+                papers: PAPER_SIZES.iter().map(|s| s.to_string()).collect(),
+            });
+        }
+        let mut papers: Vec<String> = Vec::new();
+        for p in &printers {
+            for size in p.papers() {
+                if !papers.contains(&size) {
+                    papers.push(size);
+                }
+            }
+        }
+        papers.sort_by_key(|p| {
+            PAPER_SIZES
+                .iter()
+                .position(|s| s == p)
+                .unwrap_or(usize::MAX)
+        });
+        Ok(Self {
+            color: printers.iter().any(|p| p.supports_color),
+            duplex: printers.iter().any(|p| p.supports_duplex),
+            papers,
+        })
+    }
 }
 
 /// Validates a print request against the job, the printer and the shop's prices.
@@ -166,12 +234,6 @@ pub async fn plan_print(
     req: &PrintReq,
     by_customer: bool,
 ) -> AppResult<PrintPlan> {
-    if req.items.is_empty() {
-        return Err(bad("Choose at least one file to print"));
-    }
-    if req.items.len() > 100 {
-        return Err(bad("Too many files"));
-    }
     let printer: Printer =
         sqlx::query_as(&format!("SELECT {PRINTER_COLS} FROM printers WHERE id = ?"))
             .bind(req.printer_id)
@@ -181,24 +243,51 @@ pub async fn plan_print(
     if !printer.is_active || (by_customer && !printer.allow_self_print) {
         return Err(bad("That printer isn't available right now"));
     }
+    plan_items(
+        db,
+        job_id,
+        &req.items,
+        &Capabilities::of(&printer),
+        Some(printer.id),
+    )
+    .await
+}
+
+/// Validates and prices print items for a job against `caps`.
+pub async fn plan_items(
+    db: &SqlitePool,
+    job_id: i64,
+    req_items: &[PrintItem],
+    caps: &Capabilities,
+    printer_id: Option<i64>,
+) -> AppResult<PrintPlan> {
+    if req_items.is_empty() {
+        return Err(bad("Choose at least one file to print"));
+    }
+    if req_items.len() > 100 {
+        return Err(bad("Too many files"));
+    }
     let settings = Settings::load(db).await?;
-    let papers = printer.papers();
     let mut items = Vec::new();
-    for it in &req.items {
+    for it in req_items {
+        if items.iter().any(|p: &PlannedItem| p.file_id == it.file_id) {
+            return Err(bad("Each file can only be listed once"));
+        }
         if !(1..=100).contains(&it.copies) {
             return Err(bad("Copies must be between 1 and 100"));
         }
-        if !PAPER_SIZES.contains(&it.paper_size.as_str()) || !papers.contains(&it.paper_size) {
-            return Err(bad(format!(
-                "{} paper isn't available on this printer",
-                it.paper_size
-            )));
+        if !PAPER_SIZES.contains(&it.paper_size.as_str()) || !caps.papers.contains(&it.paper_size) {
+            return Err(bad(format!("{} paper isn't available here", it.paper_size)));
         }
-        if it.color && !printer.supports_color {
-            return Err(bad("This printer prints black & white only"));
+        if it.color && !caps.color {
+            return Err(bad(
+                "Colour printing isn't available. Choose black & white.",
+            ));
         }
-        if it.duplex && !printer.supports_duplex {
-            return Err(bad("This printer can't print double-sided"));
+        if it.duplex && !caps.duplex {
+            return Err(bad(
+                "Double-sided printing isn't available. Choose one side.",
+            ));
         }
         let row: Option<(String, String, Option<i64>)> = sqlx::query_as(
             "SELECT original_name, conversion_status, page_count FROM job_files WHERE id = ? AND job_id = ?",
@@ -235,7 +324,7 @@ pub async fn plan_print(
     let total_sheets = items.iter().map(|i| i.quote.sheets).sum();
     let total_price = (items.iter().map(|i| i.quote.price).sum::<f64>() * 100.0).round() / 100.0;
     Ok(PrintPlan {
-        printer_id: printer.id,
+        printer_id,
         items,
         total_sheets,
         total_price,
@@ -257,6 +346,7 @@ pub async fn enqueue_plan(
     triggered_by: &str,
     claim: Option<CustomerClaim>,
 ) -> AppResult<Vec<i64>> {
+    let printer_id = plan.printer_id.ok_or_else(|| bad("Choose a printer"))?;
     let mut tx = st.db.begin().await?;
     if let Some(c) = claim {
         let res = sqlx::query(
@@ -282,7 +372,7 @@ pub async fn enqueue_plan(
         )
         .bind(job_id)
         .bind(it.file_id)
-        .bind(plan.printer_id)
+        .bind(printer_id)
         .bind(&it.sumatra_range)
         .bind(it.copies as i64)
         .bind(it.color)

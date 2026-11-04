@@ -61,6 +61,8 @@ export interface Settings {
 
 export interface ShopInfo {
   shop_name: string;
+  print_options: { color: boolean; duplex: boolean; paper_sizes: string[] };
+  prices: { bw_single: number; bw_duplex: number; color_single: number; color_duplex: number };
   currency: string;
   max_file_mb: number;
   max_files_per_job: number;
@@ -78,6 +80,8 @@ export interface JobFile {
   page_count: number | null;
   conversion_status: "pending" | "ok" | "failed" | "unsupported";
   error: string | null;
+  /** What the customer asked for when submitting to the shop. */
+  request: PrintItem | null;
 }
 
 export interface PrintRun {
@@ -139,7 +143,7 @@ export interface PrintItem {
 }
 
 export interface PrintPlan {
-  printer_id: number;
+  printer_id: number | null;
   items: (Omit<PrintItem, "page_range"> & { file_name: string; pages: number; quote: { sides: number; sheets: number; price: number } })[];
   total_sheets: number;
   total_price: number;
@@ -214,4 +218,12 @@ export function liveEvents(path: string, onEvent: (e: { type: string; job_id?: n
     closed = true;
     ws?.close();
   };
+}
+
+/** Short labels for a print request, e.g. ["Colour", "2 copies", "Both sides", "A4", "Pages 1-3"]. */
+export function describeRequest(r: Pick<PrintItem, "copies" | "color" | "duplex" | "paper_size" | "page_range">) {
+  const out = [r.color ? "Colour" : "B&W", r.duplex ? "Both sides" : "One side", r.paper_size];
+  if (r.copies > 1) out.splice(1, 0, `${r.copies} copies`);
+  if (r.page_range?.trim()) out.push(`Pages ${r.page_range.trim()}`);
+  return out;
 }

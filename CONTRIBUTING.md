@@ -80,6 +80,11 @@ The UI uses one dark palette, defined as Tailwind tokens in `web/src/index.css`.
 - Text on a gold background is `text-midnight`, never white.
 - For gold glows, rings and borders, use gold at 4–40% opacity (`ring-gold/25`). Avoid gold-tinted *fills* on navy, because they look muddy; use `bg-midnight/60` with a gold ring instead.
 - The printed QR poster must stay black on white (`print:` classes), so it doesn't waste toner.
+- **Type:** DM Sans, bundled via `@fontsource-variable/dm-sans`. Don't load fonts from the internet; shops may be offline, and the CSP blocks it. Use `tabular-nums` for job codes, prices and counts.
+- **Icons:** `lucide-react` only. No emoji as icons. Decorative icons get `aria-hidden`, and icon-only buttons use `IconButton`, which requires a `label`.
+- **Touch:** controls are at least 44px tall (`min-h-11`). Use the shared components in `web/src/components/ui.tsx` (`Button`, `Segmented`, `Stepper`, `Switch`, `Sheet`, `EmptyState`…) instead of one-off styles.
+- **Motion:** use the short `animate-fade-in` / `animate-rise` / `animate-sheet-up` tokens. They are switched off automatically for reduced-motion users.
+- An option a printer can't do (e.g. colour) stays visible but disabled, with the reason, rather than disappearing.
 
 ## Commit signing
 

@@ -34,6 +34,7 @@ pub fn routes() -> Router<AppState> {
         .route("/api/jobs/{id}/submit", post(submit))
         .route("/api/printers/available", get(available_printers))
         .route("/api/jobs/{id}/quote", post(quote))
+        .route("/api/jobs/{id}/estimate", post(estimate))
         .route("/api/jobs/{id}/pay", post(pay))
         .route("/api/jobs/{id}/self-print", post(self_print))
 }
@@ -287,10 +288,9 @@ async fn delete_file(
         .bind(fid)
         .execute(&st.db)
         .await?;
-    let root = storage::storage_root(&st.config.data_dir);
-    let _ = tokio::fs::remove_file(root.join(orig)).await;
+    let _ = tokio::fs::remove_file(storage::resolve(&st.config.data_dir, &orig)).await;
     if let Some(p) = pdf {
-        let _ = tokio::fs::remove_file(root.join(p)).await;
+        let _ = tokio::fs::remove_file(storage::resolve(&st.config.data_dir, &p)).await;
     }
     jobs_util::recompute_pages(&st.db, id).await?;
     Ok(Json(models::job_detail(&st.db, id).await?))
@@ -312,7 +312,7 @@ async fn file_pdf(
             .flatten();
     let pdf = pdf.ok_or(AppError::NotFound)?;
     super::files::send_file(
-        &storage::storage_root(&st.config.data_dir).join(pdf),
+        &storage::resolve(&st.config.data_dir, &pdf),
         "application/pdf",
         None,
     )
@@ -322,6 +322,29 @@ async fn file_pdf(
 #[derive(Deserialize, Default)]
 struct SubmitReq {
     notes: Option<String>,
+    /// Optional per-file wishes (pages, copies, colour, sides, paper) for staff.
+    #[serde(default)]
+    items: Vec<models::PrintItem>,
+}
+
+#[derive(Deserialize)]
+struct EstimateReq {
+    items: Vec<models::PrintItem>,
+}
+
+/// Price estimate for "Submit to shop": checked against what the shop's printers can do.
+async fn estimate(
+    State(st): State<AppState>,
+    Path(id): Path<i64>,
+    headers: HeaderMap,
+    Query(q): Query<TokenQuery>,
+    Json(req): Json<EstimateReq>,
+) -> AppResult<Json<models::PrintPlan>> {
+    authorize(&st, id, &headers, &q).await?;
+    let caps = models::Capabilities::shop(&st.db).await?;
+    Ok(Json(
+        models::plan_items(&st.db, id, &req.items, &caps, None).await?,
+    ))
 }
 
 async fn submit(
@@ -333,19 +356,38 @@ async fn submit(
 ) -> AppResult<Json<JobDetail>> {
     authorize(&st, id, &headers, &q).await?;
     ensure_has_files(&st, id).await?;
+    // Validate the wishes first; files that couldn't be converted are left for staff.
+    let plan = if req.items.is_empty() {
+        None
+    } else {
+        let caps = models::Capabilities::shop(&st.db).await?;
+        Some(models::plan_items(&st.db, id, &req.items, &caps, None).await?)
+    };
+    let mut tx = st.db.begin().await?;
     // Conditional update: a double tap or retry can only submit once.
     let res = sqlx::query(
-        "UPDATE jobs SET mode = 'submit', status = 'submitted', notes = ?, updated_at = ?
+        "UPDATE jobs SET mode = 'submit', status = 'submitted', notes = ?, estimated_price = ?,
+                         updated_at = ?
          WHERE id = ? AND status = 'uploaded'",
     )
     .bind(clean_opt(req.notes, 500))
+    .bind(plan.as_ref().map_or(0.0, |p| p.total_price))
     .bind(crate::db::now())
     .bind(id)
-    .execute(&st.db)
+    .execute(&mut *tx)
     .await?;
     if res.rows_affected() == 0 {
         return Err(already_sent());
     }
+    for it in &req.items {
+        sqlx::query("UPDATE job_files SET request = ? WHERE id = ? AND job_id = ?")
+            .bind(serde_json::to_string(it).map_err(|e| AppError::Internal(e.into()))?)
+            .bind(it.file_id)
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
+    }
+    tx.commit().await?;
     st.emit(Event::JobUpdated {
         job_id: id,
         status: "submitted".into(),

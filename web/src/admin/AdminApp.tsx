@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
+import { History as HistoryIcon, Inbox, LogOut, Printer, QrCode, Settings, Users as UsersIcon, type LucideIcon } from "lucide-react";
 import { api, ApiError, type User } from "../api";
-import { Button, Logo, Spinner } from "../components/ui";
+import { IconButton, Logo, Spinner } from "../components/ui";
 import Login from "./Login";
 import Setup from "./Setup";
 import SettingsPage from "./SettingsPage";
@@ -43,8 +44,11 @@ export default function AdminApp() {
 
   if (state.kind === "loading")
     return (
-      <div className="grid min-h-screen place-items-center text-gold">
-        <Spinner className="h-8 w-8" />
+      <div className="grid min-h-dvh place-items-center">
+        <div className="flex flex-col items-center gap-4 animate-fade-in">
+          <Logo className="h-14 w-14" />
+          <Spinner className="h-6 w-6" />
+        </div>
       </div>
     );
   if (state.kind === "setup") return <Setup onDone={(user) => setState({ kind: "ready", user })} />;
@@ -62,67 +66,116 @@ export default function AdminApp() {
   );
 }
 
+type Link = { to: string; label: string; icon: LucideIcon; end?: boolean };
+
 function Shell() {
   const { user, logout } = useAuth();
-  const links = [
-    { to: "/admin", label: "Print queue", end: true },
-    { to: "/admin/history", label: "History" },
+  const links: Link[] = [
+    { to: "/admin", label: "Print queue", icon: Inbox, end: true },
+    { to: "/admin/history", label: "History", icon: HistoryIcon },
     ...(user.role === "owner"
       ? [
-          { to: "/admin/printers", label: "Printers" },
-          { to: "/admin/settings", label: "Settings" },
-          { to: "/admin/staff", label: "Staff" },
+          { to: "/admin/printers", label: "Printers", icon: Printer },
+          { to: "/admin/settings", label: "Settings", icon: Settings },
+          { to: "/admin/staff", label: "Staff", icon: UsersIcon },
         ]
       : []),
-    { to: "/admin/qr", label: "QR poster" },
+    { to: "/admin/qr", label: "QR poster", icon: QrCode },
   ];
+  const initials = user.name
+    .split(/\s+/)
+    .map((p) => p[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
   return (
-    <div className="flex min-h-screen">
-      <aside className="flex w-56 print:hidden shrink-0 flex-col border-r border-line bg-deep text-frost/85">
-        <div className="flex items-center gap-2.5 px-5 py-5 text-lg font-bold text-frost">
-          <Logo className="h-8 w-8" />
-          ScanToPrint
+    <div className="flex min-h-dvh flex-col md:flex-row">
+      {/* Desktop sidebar */}
+      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-line bg-deep/95 print:hidden md:flex">
+        <div className="flex items-center gap-3 px-5 py-6">
+          <Logo className="h-10 w-10" />
+          <div>
+            <div className="text-base font-bold tracking-tight">ScanToPrint</div>
+            <div className="text-xs text-steel">Shop dashboard</div>
+          </div>
         </div>
-        <nav className="flex-1 space-y-1 px-3">
+        <nav aria-label="Main" className="flex-1 space-y-1 px-3">
           {links.map((l) => (
             <NavLink
               key={l.to}
               to={l.to}
               end={l.end}
               className={({ isActive }) =>
-                `block rounded-lg px-3 py-2 text-sm font-medium ${isActive ? "bg-gold text-midnight" : "hover:bg-navy-hover"}`
+                `group relative flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition ${
+                  isActive ? "bg-navy-hover text-frost" : "text-frost/70 hover:bg-ink hover:text-frost"
+                }`
               }
             >
+              {({ isActive }) => (
+                <>
+                  <span aria-hidden className={`absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full bg-gold transition-opacity ${isActive ? "opacity-100" : "opacity-0"}`} />
+                  <l.icon aria-hidden className={`h-[18px] w-[18px] ${isActive ? "text-gold" : "text-steel group-hover:text-frost/80"}`} />
+                  {l.label}
+                </>
+              )}
+            </NavLink>
+          ))}
+        </nav>
+        <div className="m-3 flex items-center gap-3 rounded-2xl bg-ink/70 p-3 ring-1 ring-line">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gold/15 text-sm font-bold text-gold ring-1 ring-gold/30">{initials}</span>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-medium">{user.name}</div>
+            <div className="text-xs capitalize text-steel">{user.role}</div>
+          </div>
+          <IconButton icon={LogOut} label="Log out" onClick={logout} />
+        </div>
+      </aside>
+
+      {/* Phone / small-screen top bar */}
+      <header className="sticky top-0 z-30 border-b border-line bg-deep/90 backdrop-blur print:hidden md:hidden">
+        <div className="flex items-center gap-3 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2">
+          <Logo className="h-9 w-9" />
+          <div className="min-w-0 flex-1 truncate font-bold">ScanToPrint</div>
+          <IconButton icon={LogOut} label="Log out" onClick={logout} />
+        </div>
+        <nav aria-label="Main" className="flex gap-1 overflow-x-auto px-3 pb-2 [scrollbar-width:none]">
+          {links.map((l) => (
+            <NavLink
+              key={l.to}
+              to={l.to}
+              end={l.end}
+              className={({ isActive }) =>
+                `flex min-h-10 shrink-0 items-center gap-2 rounded-full px-3.5 text-sm font-medium transition ${
+                  isActive ? "bg-gold text-midnight" : "text-frost/75 ring-1 ring-line hover:bg-ink"
+                }`
+              }
+            >
+              <l.icon aria-hidden className="h-4 w-4" />
               {l.label}
             </NavLink>
           ))}
         </nav>
-        <div className="border-t border-line p-4 text-sm">
-          <div className="font-medium text-frost">{user.name}</div>
-          <div className="text-xs capitalize text-steel/80">{user.role}</div>
-          <Button variant="ghost" className="mt-2 w-full !text-steel hover:!bg-navy-hover" onClick={logout}>
-            Log out
-          </Button>
-        </div>
-      </aside>
+      </header>
+
       <div className="min-w-0 flex-1">
-      <UpdateBanner isOwner={user.role === "owner"} />
-      <main className="p-6 print:p-0">
-        <Routes>
-          <Route index element={<Queue />} />
-          <Route path="jobs/:id" element={<JobDetail />} />
-          <Route path="history" element={<History />} />
-          <Route path="qr" element={<QrPoster />} />
-          {user.role === "owner" && (
-            <>
-              <Route path="printers" element={<Printers />} />
-              <Route path="settings" element={<SettingsPage />} />
-              <Route path="staff" element={<Users />} />
-            </>
-          )}
-          <Route path="*" element={<Navigate to="/admin" replace />} />
-        </Routes>
-      </main>
+        <UpdateBanner isOwner={user.role === "owner"} />
+        <main className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-8 print:p-0">
+          <Routes>
+            <Route index element={<Queue />} />
+            <Route path="jobs/:id" element={<JobDetail />} />
+            <Route path="history" element={<History />} />
+            <Route path="qr" element={<QrPoster />} />
+            {user.role === "owner" && (
+              <>
+                <Route path="printers" element={<Printers />} />
+                <Route path="settings" element={<SettingsPage />} />
+                <Route path="staff" element={<Users />} />
+              </>
+            )}
+            <Route path="*" element={<Navigate to="/admin" replace />} />
+          </Routes>
+        </main>
       </div>
     </div>
   );

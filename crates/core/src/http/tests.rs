@@ -737,3 +737,105 @@ async fn simultaneous_customers_get_distinct_codes() {
     codes.dedup();
     assert_eq!(codes.len(), n, "{codes:?}");
 }
+
+#[tokio::test]
+async fn submit_carries_customer_print_options_to_staff() {
+    let (app, state, dir) = test_app_with_state().await;
+    let owner = setup_owner(&app).await;
+    let (id, token, _) = new_job(&app).await;
+    upload(
+        &app,
+        id,
+        &token,
+        &[("thesis.pdf", sample_pdf(dir.path(), "t"))],
+    )
+    .await;
+    let job = wait_converted(&app, id, &token).await;
+    let fid = job["files"][0]["id"].as_i64().unwrap();
+    let pages = job["files"][0]["page_count"].as_i64().unwrap();
+
+    // No printers set up yet: every option is offered.
+    let shop = call(&app, "GET", "/api/shop", None, None).await;
+    assert_eq!(shop.json["print_options"]["color"], true);
+
+    let item = json!({"file_id": fid, "copies": 2, "color": true, "duplex": true, "paper_size": "A4", "page_range": "1"});
+    let est = call(
+        &app,
+        "POST",
+        &format!("/api/jobs/{id}/estimate?t={token}"),
+        Some(json!({"items":[item.clone()]})),
+        None,
+    )
+    .await;
+    assert_eq!(est.status, StatusCode::OK, "{:?}", est.json);
+    assert!(est.json["total_price"].as_f64().unwrap() > 0.0);
+    assert!(est.json["printer_id"].is_null());
+
+    let r = call(
+        &app,
+        "POST",
+        &format!("/api/jobs/{id}/submit?t={token}"),
+        Some(json!({"notes": "spiral bind", "items": [item]})),
+        None,
+    )
+    .await;
+    assert_eq!(r.status, StatusCode::OK, "{:?}", r.json);
+    assert!(r.json["estimated_price"].as_f64().unwrap() > 0.0);
+
+    // Staff see exactly what was asked for.
+    let staff = call(
+        &app,
+        "GET",
+        &format!("/api/admin/jobs/{id}"),
+        None,
+        Some(&owner),
+    )
+    .await;
+    let req = &staff.json["files"][0]["request"];
+    assert_eq!(req["color"], true);
+    assert_eq!(req["duplex"], true);
+    assert_eq!(req["copies"], 2);
+    assert_eq!(req["page_range"], "1");
+    let _ = (state, pages);
+}
+
+#[tokio::test]
+async fn submit_options_respect_what_the_shop_can_print() {
+    let (app, state, dir) = test_app_with_state().await;
+    setup_owner(&app).await;
+    // One active black & white, single-sided printer.
+    sqlx::query(
+        "INSERT INTO printers(system_name, display_name, is_active) VALUES ('bw', 'BW', 1)",
+    )
+    .execute(&state.db)
+    .await
+    .unwrap();
+    let shop = call(&app, "GET", "/api/shop", None, None).await;
+    assert_eq!(shop.json["print_options"]["color"], false);
+    assert_eq!(shop.json["print_options"]["duplex"], false);
+
+    let (id, token, _) = new_job(&app).await;
+    upload(&app, id, &token, &[("a.pdf", sample_pdf(dir.path(), "c"))]).await;
+    let job = wait_converted(&app, id, &token).await;
+    let fid = job["files"][0]["id"].as_i64().unwrap();
+    let r = call(
+        &app,
+        "POST",
+        &format!("/api/jobs/{id}/submit?t={token}"),
+        Some(json!({"items": [{"file_id": fid, "color": true}]})),
+        None,
+    )
+    .await;
+    assert_eq!(r.status, StatusCode::BAD_REQUEST);
+    assert!(r.json["error"].as_str().unwrap().contains("Colour"));
+    // Not submitted: the customer can fix it and try again.
+    let r = call(
+        &app,
+        "POST",
+        &format!("/api/jobs/{id}/submit?t={token}"),
+        Some(json!({"items": [{"file_id": fid, "color": false}]})),
+        None,
+    )
+    .await;
+    assert_eq!(r.status, StatusCode::OK);
+}

@@ -43,7 +43,7 @@ ScanToPrint puts a **QR code on the counter** instead. Customers scan it, upload
 
 ## Screenshots
 
-| Customer: upload | Customer: print it yourself | Customer: live status |
+| Customer: upload | Customer: choose colour & options | Customer: live status |
 |---|---|---|
 | <img src="docs/screenshots/customer-upload.png" width="240"> | <img src="docs/screenshots/customer-self-print.png" width="240"> | <img src="docs/screenshots/customer-status.png" width="240"> |
 

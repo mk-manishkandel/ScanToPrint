@@ -181,7 +181,7 @@ async fn process(st: &AppState, run_id: i64) -> anyhow::Result<()> {
     };
     let result = match (&run.pdf_path, &run.system_name) {
         (Some(pdf_rel), Some(printer)) => {
-            let pdf = storage::storage_root(&st.config.data_dir).join(pdf_rel);
+            let pdf = storage::resolve(&st.config.data_dir, pdf_rel);
             send_to_printer(
                 &Backend::detect(&st.config.data_dir),
                 printer,

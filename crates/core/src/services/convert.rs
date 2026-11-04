@@ -106,11 +106,10 @@ async fn process(st: &AppState, file_id: i64) -> anyhow::Result<()> {
     if status != "pending" {
         return Ok(());
     }
-    let root = storage::storage_root(&st.config.data_dir);
-    let original = root.join(&original_rel);
+    let original = storage::resolve(&st.config.data_dir, &original_rel);
     let ext = storage::extension(&original_rel);
 
-    let result = convert_one(st, &root, &original, &original_rel, kind(&ext)).await;
+    let result = convert_one(st, &original, &original_rel, kind(&ext)).await;
     match result {
         Ok(Some((pdf_rel, pages))) => {
             sqlx::query(
@@ -177,7 +176,6 @@ fn friendly_error(e: &anyhow::Error) -> String {
 /// Returns (pdf path relative to storage root, page count), or None if unsupported.
 async fn convert_one(
     st: &AppState,
-    root: &Path,
     original: &Path,
     original_rel: &str,
     kind: Kind,
@@ -193,9 +191,9 @@ async fn convert_one(
         .map(|s| s.to_string_lossy().to_string())
         .unwrap_or_else(|| "file".into());
     let pdf_rel = job_rel.join("pdf").join(format!("{stem}.pdf"));
-    let pdf_abs = root.join(&pdf_rel);
-    std::fs::create_dir_all(pdf_abs.parent().context("bad path")?)?;
     let pdf_rel_str = pdf_rel.to_string_lossy().replace('\\', "/");
+    let pdf_abs = storage::resolve(&st.config.data_dir, &pdf_rel_str);
+    std::fs::create_dir_all(pdf_abs.parent().context("bad path")?)?;
 
     match kind {
         Kind::Pdf => {

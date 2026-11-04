@@ -12,12 +12,29 @@ pub fn job_rel_dir(date: &str, code: &str) -> String {
     format!("{date}/{code}")
 }
 
+/// Turn a stored relative path (always `/`-separated, e.g. `2026-11-04/A-007/original/x.pdf`)
+/// into an absolute path with the OS's own separators.
+///
+/// Windows Explorer can't open mixed `C:\data\storage\2026-11-04/A-007` paths (it falls
+/// back to "Documents"), so every stored path goes through here. Segments that could
+/// climb out of the storage folder (`..`, empty, drive or root prefixes) are dropped.
+pub fn resolve(data_dir: &Path, rel: &str) -> PathBuf {
+    let mut out = storage_root(data_dir);
+    for seg in rel.split(['/', '\\']) {
+        if seg.is_empty() || seg == "." || seg == ".." || seg.contains(':') {
+            continue;
+        }
+        out.push(seg);
+    }
+    out
+}
+
 pub fn original_dir(data_dir: &Path, job_rel: &str) -> PathBuf {
-    storage_root(data_dir).join(job_rel).join("original")
+    resolve(data_dir, job_rel).join("original")
 }
 
 pub fn pdf_dir(data_dir: &Path, job_rel: &str) -> PathBuf {
-    storage_root(data_dir).join(job_rel).join("pdf")
+    resolve(data_dir, job_rel).join("pdf")
 }
 
 /// Make an uploaded filename safe to store: no paths, no control or reserved characters,
@@ -70,6 +87,35 @@ fn split_ext(name: &str) -> (&str, &str) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn resolves_with_native_separators_and_stays_inside() {
+        let base = std::path::Path::new("data");
+        let p = super::resolve(base, "2026-11-04/A-007/original/01-x.pdf");
+        let expect: std::path::PathBuf = [
+            "data",
+            "storage",
+            "2026-11-04",
+            "A-007",
+            "original",
+            "01-x.pdf",
+        ]
+        .iter()
+        .collect();
+        assert_eq!(p, expect);
+        assert_eq!(
+            super::resolve(base, "../../etc/passwd"),
+            ["data", "storage", "etc", "passwd"]
+                .iter()
+                .collect::<std::path::PathBuf>()
+        );
+        assert_eq!(
+            super::resolve(base, "C:/Windows"),
+            ["data", "storage", "Windows"]
+                .iter()
+                .collect::<std::path::PathBuf>()
+        );
+    }
+
     use super::*;
 
     #[test]

@@ -1,10 +1,17 @@
 @import "tailwindcss";
+/* DM Sans, bundled with the app (no internet needed; the page's CSP only allows our own files). */
+@import "@fontsource-variable/dm-sans";
 
-/* Royal Navy & Gold palette. Use these tokens, not raw Tailwind colours. */
+/*
+ * Royal Navy & Gold design tokens. Use these, never raw Tailwind colours.
+ * Rules live in CONTRIBUTING.md ("Design").
+ */
 @theme {
+  --font-sans: "DM Sans Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
   --color-midnight: #0b1426; /* main page background */
   --color-ink: #16233d; /* cards, panels, form fields */
-  --color-deep: #070e1c; /* deepest areas: sidebar, loading, overlays */
+  --color-deep: #070e1c; /* deepest areas: sidebar, overlays, loading */
   --color-frost: #eef0f5; /* main text and headings */
   --color-steel: #8a94a8; /* secondary text, labels, captions */
   --color-gold: #d4af6a; /* accent: buttons, links, highlights, logo */
@@ -15,10 +22,52 @@
   --color-orb: #1e2f52; /* centre of logo-orb gradient */
   --color-line: rgba(238, 240, 245, 0.12); /* thin dividers and borders */
   --color-line-strong: rgba(238, 240, 245, 0.24); /* stronger and hovered borders */
+
+  /* Motion: short, eased, and switched off for reduced-motion users (below). */
+  --ease-out-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-fade-in: fade-in 220ms var(--ease-out-soft) both;
+  --animate-rise: rise 280ms var(--ease-out-soft) both;
+  --animate-sheet-up: sheet-up 300ms var(--ease-out-soft) both;
+  --animate-pop: pop 260ms var(--ease-out-soft) both;
+  --animate-glow: glow 2.4s ease-in-out infinite;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+  @keyframes sheet-up {
+    from {
+      transform: translateY(24px);
+      opacity: 0;
+    }
+  }
+  @keyframes pop {
+    from {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+  }
+  @keyframes glow {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 rgba(212, 175, 106, 0);
+    }
+    50% {
+      box-shadow: 0 0 0 6px rgba(212, 175, 106, 0.18);
+    }
+  }
 }
 
 :root {
   color-scheme: dark; /* native selects, checkboxes, scrollbars match */
+  -webkit-tap-highlight-color: transparent;
 }
 
 html,
@@ -29,13 +78,35 @@ body,
 
 body {
   background-color: var(--color-midnight);
-  background-image: radial-gradient(60rem 30rem at 50% -10rem, rgba(54, 84, 150, 0.28), transparent 70%);
+  background-image:
+    radial-gradient(64rem 32rem at 50% -12rem, rgba(54, 84, 150, 0.32), transparent 70%),
+    radial-gradient(40rem 24rem at 100% 0%, rgba(212, 175, 106, 0.05), transparent 70%);
   background-repeat: no-repeat;
   color: var(--color-frost);
+  font-family: var(--font-sans);
+  font-feature-settings: "ss01", "cv11";
+  text-rendering: optimizeLegibility;
 }
 
 ::selection {
   background: rgba(212, 175, 106, 0.35);
+}
+
+/* Visible keyboard focus everywhere (never removed without a replacement). */
+:focus-visible {
+  outline: 2px solid rgba(212, 175, 106, 0.7);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Paper is white: print dark text on it and drop the navy backgrounds. */

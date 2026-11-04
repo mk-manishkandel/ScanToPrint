@@ -35,7 +35,19 @@ pub fn routes() -> Router<AppState> {
 
 async fn shop_info(State(st): State<AppState>) -> AppResult<Json<Value>> {
     let s = Settings::load(&st.db).await?;
+    let caps = crate::models::Capabilities::shop(&st.db).await?;
     Ok(Json(json!({
+        "print_options": {
+            "color": caps.color,
+            "duplex": caps.duplex,
+            "paper_sizes": caps.papers,
+        },
+        "prices": {
+            "bw_single": s.price_bw_single,
+            "bw_duplex": s.price_bw_duplex,
+            "color_single": s.price_color_single,
+            "color_duplex": s.price_color_duplex,
+        },
         "shop_name": s.shop_name,
         "currency": s.currency,
         "max_file_mb": s.max_file_mb,

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AlertTriangle, ArrowUpCircle, Loader2 } from "lucide-react";
 import { api } from "../api";
 import { Button } from "../components/ui";
 
@@ -23,22 +24,27 @@ export default function UpdateBanner({ isOwner }: { isOwner: boolean }) {
   }, [info?.state]);
 
   if (!info?.supported || (!info.available && info.state !== "error")) return null;
+  const working = info.state === "downloading" || info.state === "installing";
 
   return (
-    <div className="flex flex-wrap items-center gap-3 bg-gold px-6 py-2 text-sm text-midnight print:hidden">
-      {info.state === "downloading" || info.state === "installing" ? (
-        <span>Installing ScanToPrint {info.available}… the app will restart in a moment.</span>
+    <div role="status" className="flex flex-wrap items-center gap-3 border-b border-gold/30 bg-gradient-to-r from-gold/20 via-gold/10 to-transparent px-4 py-2.5 text-sm sm:px-6 print:hidden">
+      {working ? (
+        <span className="inline-flex items-center gap-2">
+          <Loader2 aria-hidden className="h-4 w-4 animate-spin text-gold" /> Installing ScanToPrint {info.available}. The app will restart in a moment.
+        </span>
       ) : info.state === "error" ? (
-        <span>{info.error}</span>
+        <span className="inline-flex items-center gap-2 text-danger">
+          <AlertTriangle aria-hidden className="h-4 w-4" /> {info.error}
+        </span>
       ) : (
         <>
+          <ArrowUpCircle aria-hidden className="h-4 w-4 text-gold" />
           <span>
-            <b>ScanToPrint {info.available}</b> is available (you have {info.current}).
+            <b className="text-gold">ScanToPrint {info.available}</b> is available <span className="text-steel">(you have {info.current})</span>
           </span>
           {isOwner ? (
             <Button
-              variant="secondary"
-              className="!py-1"
+              size="sm"
               onClick={() =>
                 api.post("/api/admin/update/install").then(
                   () => setInfo({ ...info, state: "downloading" }),
@@ -49,9 +55,9 @@ export default function UpdateBanner({ isOwner }: { isOwner: boolean }) {
               Install & restart
             </Button>
           ) : (
-            <span className="opacity-80">Ask the owner to install it.</span>
+            <span className="text-steel">Ask the owner to install it.</span>
           )}
-          {error && <span className="rounded bg-midnight/15 px-2">{error}</span>}
+          {error && <span className="text-danger">{error}</span>}
         </>
       )}
     </div>
