@@ -134,7 +134,7 @@ export function PrintOptions({
                 <label
                   key={p.id}
                   className={`flex min-h-16 cursor-pointer items-center gap-3 rounded-2xl p-3 ring-1 transition has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-gold/70 ${
-                    on ? "bg-navy-hover ring-2 ring-gold" : "bg-midnight/50 ring-line hover:ring-line-strong"
+                    on ? "bg-navy-hover ring-2 ring-gold" : "bg-midnight ring-line hover:ring-line-strong"
                   }`}
                 >
                   <input type="radio" name="printer" className="sr-only" checked={on} onChange={() => setPrinterId(p.id)} />
@@ -160,7 +160,7 @@ export function PrintOptions({
         if (!it) return null;
         const line = plan?.items.find((p) => p.file_id === f.id);
         return (
-          <section key={f.id} aria-label={f.original_name} className={`rounded-2xl p-4 ring-1 transition ${it.include ? "bg-midnight/40 ring-line" : "bg-transparent ring-line opacity-70"}`}>
+          <section key={f.id} aria-label={f.original_name} className={`rounded-2xl p-4 ring-1 transition ${it.include ? "bg-midnight ring-line" : "bg-transparent ring-line opacity-70"}`}>
             <div className="flex items-center gap-3">
               <FileIcon name={f.original_name} />
               <div className="min-w-0 flex-1">

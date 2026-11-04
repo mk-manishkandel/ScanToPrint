@@ -70,7 +70,7 @@ export default function JobDetail() {
           </div>
         </div>
         {job.notes && (
-          <div className="mt-5 flex gap-3 rounded-2xl bg-midnight/60 px-4 py-3 text-gold-soft ring-1 ring-gold/25">
+          <div className="mt-5 flex gap-3 rounded-2xl bg-midnight px-4 py-3 text-gold-soft ring-1 ring-gold/25">
             <MessageSquareQuote aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-gold" />
             <div><span className="text-xs uppercase tracking-wider text-steel">Customer note</span><div>{job.notes}</div></div>
           </div>

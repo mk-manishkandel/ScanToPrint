@@ -209,7 +209,7 @@ function UploadStep({
           type="button"
           disabled={uploading}
           onClick={() => fileInput.current?.click()}
-          className="group flex w-full cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed border-gold/45 bg-ink/50 px-4 py-8 text-center transition hover:border-gold hover:bg-navy-hover active:bg-navy-hover disabled:cursor-wait disabled:opacity-70"
+          className="group flex w-full cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed border-gold/45 bg-ink px-4 py-8 text-center transition hover:border-gold hover:bg-navy-hover active:bg-navy-hover disabled:cursor-wait disabled:opacity-70"
         >
           <span className="grid h-14 w-14 place-items-center rounded-2xl bg-gold text-midnight transition group-hover:scale-105">
             {files.length ? <Plus aria-hidden className="h-7 w-7" /> : <FileUp aria-hidden className="h-7 w-7" />}
@@ -461,7 +461,7 @@ function SelfPrintSheet({ job, token, onClose, onJob }: { job: Job; token: strin
       )}
       {step === "pay" && state.plan && (
         <div className="space-y-4 animate-fade-in">
-          <Card className="!bg-midnight/60">
+          <Card className="!bg-midnight">
             <ul className="space-y-2 text-sm">
               {state.plan.items.map((i) => (
                 <li key={i.file_id} className="flex items-start justify-between gap-3">

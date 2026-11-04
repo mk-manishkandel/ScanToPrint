@@ -81,7 +81,7 @@ export default function SettingsPage() {
         <VersionInfo className="!text-sm" />
       </Card>
       <ErrorText error={error} />
-      <div className="sticky bottom-4 flex items-center gap-3 rounded-2xl bg-deep/90 p-3 ring-1 ring-line backdrop-blur">
+      <div className="sticky bottom-4 flex items-center gap-3 rounded-2xl bg-deep p-3 ring-1 ring-line">
         <Button type="submit" size="lg" icon={Save} loading={busy}>{busy ? "Saving…" : "Save settings"}</Button>
         {saved && (
           <span role="status" className="inline-flex items-center gap-1.5 text-sm text-gold animate-fade-in">

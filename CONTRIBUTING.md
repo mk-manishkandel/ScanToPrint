@@ -80,6 +80,7 @@ The UI uses one dark palette, defined as Tailwind tokens in `web/src/index.css`.
 - Text on a gold background is `text-midnight`, never white.
 - **No glow effects:** no coloured shadows, blurred light spots, pulsing rings or gradient backgrounds. Use flat fills and one thin border/ring.
 - For gold rings and borders, use gold at 25–50% opacity (`ring-gold/25`). Avoid gold-tinted *fills* on navy, because they look muddy; use `bg-midnight/60` with a gold ring instead.
+- **Solid surfaces.** Cards, panels, fields and bars use solid token colours (`bg-ink`, `bg-midnight`, `bg-deep`), never see-through ones like `bg-ink/80`, and no `backdrop-blur`. On some Windows graphics drivers, WebView2 draws large see-through layers as green-grey patches. The only exception is the dimmed backdrop behind a pop-up.
 - **One stroke per element.** Text fields show focus by turning their own border gold; don't add a ring or outline on top.
 - The printed QR poster must stay black on white (`print:` classes), so it doesn't waste toner.
 - **Type:** DM Sans, bundled via `@fontsource-variable/dm-sans`. Don't load fonts from the internet; shops may be offline, and the CSP blocks it. Use `tabular-nums` for job codes, prices and counts.

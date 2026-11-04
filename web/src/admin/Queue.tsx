@@ -92,7 +92,7 @@ export default function Queue() {
 
       <div className="grid grid-cols-3 gap-3">
         {groups.map(([title, Icon, g], i) => (
-          <div key={title} className="rounded-2xl bg-ink/80 p-4 ring-1 ring-line animate-rise">
+          <div key={title} className="rounded-2xl bg-ink p-4 ring-1 ring-line animate-rise">
             <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-steel" title={title}>
               <Icon aria-hidden className="h-4 w-4 shrink-0 text-gold" />
               <span className="truncate sm:hidden">{["To do", "Printing", "Ready"][i]}</span>
@@ -142,7 +142,7 @@ function JobCard({ job: j, fresh, onSeen, setStatus }: { job: Job; fresh: boolea
       onMouseEnter={onSeen}
       onFocus={onSeen}
       aria-label={`Job ${j.code}`}
-      className={`flex flex-col rounded-3xl bg-ink/90 p-5 ring-1 transition animate-rise ${fresh ? "ring-2 ring-gold" : "ring-line hover:ring-line-strong"}`}
+      className={`flex flex-col rounded-3xl bg-ink p-5 ring-1 transition animate-rise ${fresh ? "ring-2 ring-gold" : "ring-line hover:ring-line-strong"}`}
     >
       <header className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
@@ -193,7 +193,7 @@ function JobCard({ job: j, fresh, onSeen, setStatus }: { job: Job; fresh: boolea
       </ul>
 
       {j.notes && (
-        <div className="mt-4 flex gap-2 rounded-2xl bg-midnight/60 px-3.5 py-3 text-sm text-gold-soft ring-1 ring-gold/25">
+        <div className="mt-4 flex gap-2 rounded-2xl bg-midnight px-3.5 py-3 text-sm text-gold-soft ring-1 ring-gold/25">
           <MessageSquareQuote aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
           <span>{j.notes}</span>
         </div>

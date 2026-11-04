@@ -285,15 +285,17 @@ async fn delete_file(
             .fetch_optional(&st.db)
             .await?;
     let (orig, pdf) = paths.ok_or(AppError::NotFound)?;
+    let mut tx = st.db.begin().await?;
     sqlx::query("DELETE FROM job_files WHERE id = ?")
         .bind(fid)
-        .execute(&st.db)
+        .execute(&mut *tx)
         .await?;
+    jobs_util::recompute_pages(&mut tx, id).await?;
+    tx.commit().await?;
     let _ = tokio::fs::remove_file(storage::resolve(&st.config.data_dir, &orig)).await;
     if let Some(p) = pdf {
         let _ = tokio::fs::remove_file(storage::resolve(&st.config.data_dir, &p)).await;
     }
-    jobs_util::recompute_pages(&st.db, id).await?;
     Ok(Json(models::job_detail(&st.db, id).await?))
 }
 

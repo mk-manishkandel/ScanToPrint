@@ -92,7 +92,7 @@ function Shell() {
   return (
     <div className="flex min-h-dvh flex-col md:flex-row">
       {/* Desktop sidebar */}
-      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-line bg-deep/95 print:hidden md:flex">
+      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-line bg-deep print:hidden md:flex">
         <div className="flex items-center gap-3 px-5 py-6">
           <Logo className="h-10 w-10" />
           <div>
@@ -121,7 +121,7 @@ function Shell() {
             </NavLink>
           ))}
         </nav>
-        <div className="m-3 flex items-center gap-3 rounded-2xl bg-ink/70 p-3 ring-1 ring-line">
+        <div className="m-3 flex items-center gap-3 rounded-2xl bg-ink p-3 ring-1 ring-line">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gold/15 text-sm font-bold text-gold ring-1 ring-gold/30">{initials}</span>
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-medium">{user.name}</div>
@@ -133,7 +133,7 @@ function Shell() {
       </aside>
 
       {/* Phone / small-screen top bar */}
-      <header className="sticky top-0 z-30 border-b border-line bg-deep/90 backdrop-blur print:hidden md:hidden">
+      <header className="sticky top-0 z-30 border-b border-line bg-deep print:hidden md:hidden">
         <div className="flex items-center gap-3 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2">
           <Logo className="h-9 w-9" />
           <div className="min-w-0 flex-1">

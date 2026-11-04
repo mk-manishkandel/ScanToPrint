@@ -18,7 +18,8 @@ pub async fn next_code(db: &SqlitePool, today: &str, attempt: i64) -> AppResult<
     Ok(format!("{letter}-{:03}", count + 1 + attempt))
 }
 
-pub async fn recompute_pages(db: &SqlitePool, job_id: i64) -> AppResult<()> {
+/// Run in the same transaction as the file change, so readers never see a stale total.
+pub async fn recompute_pages(db: &mut sqlx::SqliteConnection, job_id: i64) -> AppResult<()> {
     sqlx::query(
         "UPDATE jobs SET total_pages = (SELECT COALESCE(SUM(page_count), 0) FROM job_files WHERE job_id = ?),
                          updated_at = ? WHERE id = ?",

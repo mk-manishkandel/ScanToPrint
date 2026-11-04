@@ -64,7 +64,7 @@ export default function History() {
       {list.length > 0 && (
         <>
           {/* Wide screens: a table. */}
-          <div className="hidden overflow-hidden rounded-2xl bg-ink/90 ring-1 ring-line animate-fade-in md:block">
+          <div className="hidden overflow-hidden rounded-2xl bg-ink ring-1 ring-line animate-fade-in md:block">
             <table className="w-full table-fixed text-sm">
               <colgroup>
                 <col className="w-[13%]" />
@@ -75,7 +75,7 @@ export default function History() {
                 <col className="w-[8%]" />
                 <col className="w-[18%]" />
               </colgroup>
-              <thead className="bg-midnight/50 text-left text-xs uppercase tracking-wider text-steel">
+              <thead className="bg-midnight text-left text-xs uppercase tracking-wider text-steel">
                 <tr>
                   <th scope="col" className="px-4 py-3 font-medium">Code</th>
                   <th scope="col" className="px-4 py-3 font-medium">Customer</th>
@@ -119,7 +119,7 @@ export default function History() {
           <ul className="space-y-2 md:hidden">
             {list.map((j) => (
               <li key={j.id}>
-                <Link to={`/admin/jobs/${j.id}`} className="block rounded-2xl bg-ink/90 p-4 ring-1 ring-line transition hover:bg-navy-hover">
+                <Link to={`/admin/jobs/${j.id}`} className="block rounded-2xl bg-ink p-4 ring-1 ring-line transition hover:bg-navy-hover">
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-lg font-bold tabular-nums text-gold">{j.code}</span>
                     <Badge tone={STATUS_TONE[j.status]}>{STATUS_LABEL[j.status]}</Badge>
@@ -154,7 +154,7 @@ function ModeLabel({ mode }: { mode: Job["mode"] }) {
 
 function Stat({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string | number }) {
   return (
-    <div className="rounded-2xl bg-ink/80 p-4 ring-1 ring-line">
+    <div className="rounded-2xl bg-ink p-4 ring-1 ring-line">
       <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-steel">
         <Icon aria-hidden className="h-4 w-4 text-gold" /> {label}
       </div>

@@ -113,7 +113,7 @@ export default function QrPoster() {
             </dl>
             <div className="mt-3 border-t border-line pt-3">
               <div className="text-steel">Files stored in</div>
-              <code className="mt-1.5 block break-all rounded-lg bg-midnight/70 px-2.5 py-2 text-xs text-frost/85">{sys.storage_dir}</code>
+              <code className="mt-1.5 block break-all rounded-lg bg-midnight px-2.5 py-2 text-xs text-frost/85">{sys.storage_dir}</code>
               {onShopPc && (
                 <Button variant="secondary" size="sm" icon={FolderOpen} className="mt-2 w-full" onClick={() => api.post("/api/admin/storage/open").catch((e) => setError(e.message))}>
                   Open folder

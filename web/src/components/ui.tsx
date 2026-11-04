@@ -69,7 +69,7 @@ export function IconButton({
 /* ------------------------------------------------------------------ surfaces */
 
 export function Card({ children, className = "", as: Tag = "div" }: { children: ReactNode; className?: string; as?: "div" | "section" | "article" }) {
-  return <Tag className={`rounded-2xl bg-ink/90 p-5 ring-1 ring-line ${className}`}>{children}</Tag>;
+  return <Tag className={`rounded-2xl bg-ink p-5 ring-1 ring-line ${className}`}>{children}</Tag>;
 }
 
 export function PageHeader({ title, description, actions, icon: Icon }: { title: string; description?: ReactNode; actions?: ReactNode; icon?: LucideIcon }) {
@@ -93,7 +93,7 @@ export function PageHeader({ title, description, actions, icon: Icon }: { title:
 
 export function EmptyState({ icon: Icon, title, children, action }: { icon: LucideIcon; title: string; children?: ReactNode; action?: ReactNode }) {
   return (
-    <div className="flex flex-col items-center rounded-3xl border border-dashed border-line-strong bg-ink/40 px-6 py-14 text-center animate-fade-in">
+    <div className="flex flex-col items-center rounded-3xl border border-dashed border-line-strong bg-ink px-6 py-14 text-center animate-fade-in">
       <span className="grid h-14 w-14 place-items-center rounded-2xl bg-ink text-gold ring-1 ring-gold/25">
         <Icon aria-hidden className="h-6 w-6" />
       </span>
@@ -123,7 +123,7 @@ export function Field({ label, hint, error, children, className = "" }: { label:
 }
 
 const FIELD =
-  "w-full min-w-0 rounded-xl border border-line-strong bg-midnight/60 px-3.5 text-base text-frost outline-none transition placeholder:text-steel/70 hover:border-gold/40 focus:border-gold aria-[invalid=true]:border-danger disabled:opacity-60";
+  "w-full min-w-0 rounded-xl border border-line-strong bg-midnight px-3.5 text-base text-frost outline-none transition placeholder:text-steel/70 hover:border-gold/40 focus:border-gold aria-[invalid=true]:border-danger disabled:opacity-60";
 
 export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={`${FIELD} min-h-11 py-2.5 ${props.className ?? ""}`} />;
@@ -155,7 +155,7 @@ export function Segmented<T extends string>({
   return (
     <fieldset className={className}>
       <legend className="mb-1.5 text-xs font-medium uppercase tracking-wider text-steel">{label}</legend>
-      <div className="grid auto-cols-fr grid-flow-col gap-1 rounded-xl bg-midnight/70 p-1 ring-1 ring-inset ring-line">
+      <div className="grid auto-cols-fr grid-flow-col gap-1 rounded-xl bg-midnight p-1 ring-1 ring-inset ring-line">
         {options.map((o) => {
           const on = o.value === value;
           return (
@@ -191,7 +191,7 @@ export function Stepper({ label, value, min = 1, max = 100, onChange }: { label:
   return (
     <div>
       <div className="mb-1.5 text-xs font-medium uppercase tracking-wider text-steel">{label}</div>
-      <div className="flex items-center rounded-xl bg-midnight/70 ring-1 ring-inset ring-line">
+      <div className="flex items-center rounded-xl bg-midnight ring-1 ring-inset ring-line">
         <IconButton icon={Minus} label={`Fewer ${label.toLowerCase()}`} disabled={value <= min} onClick={() => onChange(Math.max(min, value - 1))} />
         <output aria-live="polite" className="flex-1 text-center text-base font-semibold tabular-nums">{value}</output>
         <IconButton icon={Plus} label={`More ${label.toLowerCase()}`} disabled={value >= max} onClick={() => onChange(Math.min(max, value + 1))} />
@@ -235,7 +235,7 @@ export function ErrorText({ error }: { error?: string | null }) {
 
 export function Notice({ icon: Icon, children, className = "" }: { icon: LucideIcon; children: ReactNode; className?: string }) {
   return (
-    <div className={`flex items-start gap-3 rounded-xl bg-midnight/60 px-4 py-3 text-sm text-gold-soft ring-1 ring-gold/25 ${className}`}>
+    <div className={`flex items-start gap-3 rounded-xl bg-midnight px-4 py-3 text-sm text-gold-soft ring-1 ring-gold/25 ${className}`}>
       <Icon aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
       <div className="min-w-0">{children}</div>
     </div>
@@ -276,7 +276,7 @@ export function Badge({ children, tone = "slate", dot = true }: { children: Reac
 /** Small neutral chip for print settings (e.g. "Colour", "2 copies"). */
 export function Chip({ icon: Icon, children, accent }: { icon?: LucideIcon; children: ReactNode; accent?: boolean }) {
   return (
-    <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${accent ? "bg-gold/12 text-gold ring-gold/30" : "bg-midnight/60 text-frost/85 ring-line"}`}>
+    <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${accent ? "bg-gold/12 text-gold ring-gold/30" : "bg-midnight text-frost/85 ring-line"}`}>
       {Icon && <Icon aria-hidden className="h-3 w-3" />}
       {children}
     </span>
@@ -394,7 +394,7 @@ const EXT_ICON: [RegExp, LucideIcon][] = [
 export function FileIcon({ name, className = "" }: { name: string; className?: string }) {
   const Icon = EXT_ICON.find(([re]) => re.test(name))?.[1] ?? File;
   return (
-    <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-midnight/70 text-gold ring-1 ring-line ${className}`}>
+    <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-midnight text-gold ring-1 ring-line ${className}`}>
       <Icon aria-hidden className="h-5 w-5" />
     </span>
   );
@@ -411,7 +411,7 @@ export function Steps({ steps, current }: { steps: string[]; current: number }) 
           <li key={s} aria-current={on ? "step" : undefined} className="flex min-w-0 flex-1 items-center gap-2">
             <span
               className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-bold transition ${
-                done ? "bg-gold text-midnight" : on ? "bg-midnight text-gold ring-2 ring-gold" : "bg-midnight/60 text-steel ring-1 ring-line"
+                done ? "bg-gold text-midnight" : on ? "bg-midnight text-gold ring-2 ring-gold" : "bg-midnight text-steel ring-1 ring-line"
               }`}
             >
               {done ? <Check aria-hidden className="h-4 w-4" /> : i + 1}

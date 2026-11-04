@@ -77,15 +77,18 @@ pub struct JobDetail {
 }
 
 pub async fn job_detail(db: &SqlitePool, id: i64) -> AppResult<JobDetail> {
+    // One read transaction = one snapshot, so the job's totals always match its files
+    // even while a conversion or print finishes in between the three queries.
+    let mut tx = db.begin().await?;
     let job: Job = sqlx::query_as(&format!("SELECT {JOB_COLS} FROM jobs WHERE id = ?"))
         .bind(id)
-        .fetch_one(db)
+        .fetch_one(&mut *tx)
         .await?;
     let files = sqlx::query_as(&format!(
         "SELECT {FILE_COLS} FROM job_files WHERE job_id = ? ORDER BY id"
     ))
     .bind(id)
-    .fetch_all(db)
+    .fetch_all(&mut *tx)
     .await?;
     let runs = sqlx::query_as(
         "SELECT r.id, r.file_id, r.printer_id, p.display_name AS printer_name, r.page_range, r.copies,
@@ -94,8 +97,9 @@ pub async fn job_detail(db: &SqlitePool, id: i64) -> AppResult<JobDetail> {
          WHERE r.job_id = ? ORDER BY r.id",
     )
     .bind(id)
-    .fetch_all(db)
+    .fetch_all(&mut *tx)
     .await?;
+    tx.commit().await?;
     Ok(JobDetail { job, files, runs })
 }
 

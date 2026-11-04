@@ -110,6 +110,8 @@ async fn process(st: &AppState, file_id: i64) -> anyhow::Result<()> {
     let ext = storage::extension(&original_rel);
 
     let result = convert_one(st, &original, &original_rel, kind(&ext)).await;
+    // File status and the job's page total change together.
+    let mut tx = st.db.begin().await?;
     match result {
         Ok(Some((pdf_rel, pages))) => {
             sqlx::query(
@@ -118,7 +120,7 @@ async fn process(st: &AppState, file_id: i64) -> anyhow::Result<()> {
             .bind(pdf_rel)
             .bind(pages as i64)
             .bind(file_id)
-            .execute(&st.db)
+            .execute(&mut *tx)
             .await?;
         }
         Ok(None) => {
@@ -127,7 +129,7 @@ async fn process(st: &AppState, file_id: i64) -> anyhow::Result<()> {
             )
             .bind("This file type can't be printed automatically. The shop can still open it.")
             .bind(file_id)
-            .execute(&st.db)
+            .execute(&mut *tx)
             .await?;
         }
         Err(e) => {
@@ -137,11 +139,12 @@ async fn process(st: &AppState, file_id: i64) -> anyhow::Result<()> {
             )
             .bind(friendly_error(&e))
             .bind(file_id)
-            .execute(&st.db)
+            .execute(&mut *tx)
             .await?;
         }
     }
-    crate::services::jobs_util::recompute_pages(&st.db, job_id).await?;
+    crate::services::jobs_util::recompute_pages(&mut tx, job_id).await?;
+    tx.commit().await?;
     st.emit(Event::FileUpdated { job_id, file_id });
     Ok(())
 }
