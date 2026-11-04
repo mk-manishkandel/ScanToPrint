@@ -65,10 +65,11 @@ async fn check(app: &AppHandle, bridge: &UpdateBridge) -> Option<Update> {
             None
         }
         Err(e) => {
-            // Usually just "no internet" — not worth alarming the shop about.
+            // Usually just "no internet": no banner, but "Check for updates" shows the reason.
             tracing::warn!("update check failed: {e}");
             bridge.update(|i| {
                 i.state = "idle".into();
+                i.error = Some(format!("{e}. Is this PC connected to the internet?"));
                 i.last_checked = Some(now);
             });
             None

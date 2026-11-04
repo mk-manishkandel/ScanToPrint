@@ -12,16 +12,21 @@ interface UpdateInfo {
   notes: string | null;
   state: "idle" | "checking" | "downloading" | "installing" | "error";
   error: string | null;
+  last_checked: string | null;
 }
 
 export default function UpdateBanner({ isOwner }: { isOwner: boolean }) {
   const [info, setInfo] = useState<UpdateInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // The app checks GitHub ~20 s after it starts, but this window opens straight away.
+  // Ask often until that first check has finished (or while installing), then every few minutes.
+  const waiting = !info || (info.supported && (!info.last_checked || ["checking", "downloading", "installing"].includes(info.state)));
+
   useEffect(() => {
     const load = () => api.get<UpdateInfo>("/api/admin/update").then(setInfo, () => {});
     load();
-    const t = setInterval(load, info?.state === "downloading" ? 3000 : 15 * 60 * 1000);
+    const t = setInterval(load, waiting ? 3000 : 5 * 60 * 1000);
     // "Check for updates" (VersionInfo) shares what it finds so the banner shows at once.
     const onInfo = (e: Event) => setInfo((e as CustomEvent<UpdateInfo>).detail);
     window.addEventListener(INFO_EVENT, onInfo);
@@ -29,7 +34,7 @@ export default function UpdateBanner({ isOwner }: { isOwner: boolean }) {
       clearInterval(t);
       window.removeEventListener(INFO_EVENT, onInfo);
     };
-  }, [info?.state]);
+  }, [waiting]);
 
   if (!info?.supported || (!info.available && info.state !== "error")) return null;
   const working = info.state === "downloading" || info.state === "installing";
@@ -97,7 +102,13 @@ export function VersionInfo({ className = "" }: { className?: string }) {
         if (next.state !== "checking") {
           setInfo(next);
           window.dispatchEvent(new CustomEvent(INFO_EVENT, { detail: next }));
-          setResult(next.available ? `Version ${next.available} is available` : "You have the latest version");
+          setResult(
+            next.available
+              ? `Version ${next.available} is available`
+              : next.error
+                ? `Couldn't check: ${next.error}`
+                : "You have the latest version",
+          );
           return;
         }
       }
