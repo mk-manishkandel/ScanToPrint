@@ -36,7 +36,7 @@ export const api = {
   post: <T>(url: string, body?: unknown, headers?: Record<string, string>) => request<T>("POST", url, body ?? {}, headers),
   put: <T>(url: string, body: unknown) => request<T>("PUT", url, body),
   patch: <T>(url: string, body: unknown, headers?: Record<string, string>) => request<T>("PATCH", url, body, headers),
-  del: <T>(url: string) => request<T>("DELETE", url),
+  del: <T>(url: string, headers?: Record<string, string>) => request<T>("DELETE", url, undefined, headers),
 };
 
 export interface User {

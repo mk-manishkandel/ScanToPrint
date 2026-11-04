@@ -40,7 +40,7 @@ async fn check(app: &AppHandle, bridge: &UpdateBridge) -> Option<Update> {
         Ok(u) => u.check().await.map_err(|e| e.to_string()),
         Err(e) => Err(e.to_string()),
     };
-    let now = chrono_now();
+    let now = unix_now();
     match result {
         Ok(Some(update)) => {
             tracing::info!("update available: {}", update.version);
@@ -95,7 +95,7 @@ async fn install(app: &AppHandle, bridge: &UpdateBridge, update: Update) {
     }
 }
 
-fn chrono_now() -> String {
+fn unix_now() -> String {
     let secs = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())

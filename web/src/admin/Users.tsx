@@ -44,7 +44,7 @@ export default function Users() {
                 <Button
                   variant="secondary"
                   onClick={() => {
-                    const pw = prompt(`New password for ${u.name} (min 6 characters):`);
+                    const pw = prompt(`New password for ${u.name} (at least 8 characters):`);
                     if (pw) run(() => api.patch(`/api/admin/users/${u.id}`, { password: pw }));
                   }}
                 >

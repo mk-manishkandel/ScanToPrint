@@ -1,0 +1,8 @@
+# cargo-audit configuration (run in CI).
+[advisories]
+ignore = [
+    # rsa "Marvin attack": only reachable through sqlx-mysql, which is listed in Cargo.lock
+    # because of sqlx's macros but is never compiled (we enable only the sqlite driver).
+    # Verify with: cargo tree -i sqlx-mysql --target all   (prints nothing)
+    "RUSTSEC-2023-0071",
+]

@@ -55,13 +55,23 @@ const A4_W: f32 = 595.28;
 const A4_H: f32 = 841.89;
 const MARGIN: f32 = 18.0;
 const MAX_PIXELS: u32 = 4000;
+/// Largest image side we will decode at all (a 600 dpi A3 scan is ~10 000 px).
+const MAX_DECODE_DIM: u32 = 16_000;
+/// Memory cap for decoding one image.
+const MAX_DECODE_BYTES: u64 = 768 * 1024 * 1024;
 
 /// Converts any supported image to a single-page A4 PDF (portrait or landscape to match).
 pub fn image_to_pdf(src: &Path, dest: &Path) -> anyhow::Result<u32> {
-    let mut decoder = ImageReader::open(src)?
-        .with_guessed_format()?
+    // Guard against "decompression bombs": tiny files that claim enormous dimensions.
+    let mut limits = image::Limits::default();
+    limits.max_image_width = Some(MAX_DECODE_DIM);
+    limits.max_image_height = Some(MAX_DECODE_DIM);
+    limits.max_alloc = Some(MAX_DECODE_BYTES);
+    let mut reader = ImageReader::open(src)?.with_guessed_format()?;
+    reader.limits(limits);
+    let mut decoder = reader
         .into_decoder()
-        .context("unsupported or damaged image")?;
+        .context("unsupported, damaged or too large image")?;
     // Phone photos store rotation in EXIF; apply it so the print isn't sideways.
     let orientation = decoder.orientation().ok();
     let mut img = DynamicImage::from_decoder(decoder).context("decoding image")?;
@@ -179,6 +189,42 @@ mod tests {
         let mb = doc.get_dictionary(page).unwrap().get(b"MediaBox").unwrap();
         let w = mb.as_array().unwrap()[2].as_float().unwrap();
         assert!(w > 800.0, "wide image should give a landscape page");
+    }
+
+    #[test]
+    fn oversized_image_is_rejected_not_decoded() {
+        let dir = tempfile::tempdir().unwrap();
+        // A valid PNG header claiming 100 000 × 100 000 pixels.
+        let src = dir.path().join("bomb.png");
+        let mut png = b"\x89PNG\r\n\x1a\n".to_vec();
+        let ihdr = [
+            &100_000u32.to_be_bytes()[..],
+            &100_000u32.to_be_bytes()[..],
+            &[8, 2, 0, 0, 0],
+        ]
+        .concat();
+        let mut chunk = b"IHDR".to_vec();
+        chunk.extend_from_slice(&ihdr);
+        png.extend_from_slice(&(ihdr.len() as u32).to_be_bytes());
+        png.extend_from_slice(&chunk);
+        png.extend_from_slice(&crc32(&chunk).to_be_bytes());
+        std::fs::write(&src, png).unwrap();
+        assert!(image_to_pdf(&src, &dir.path().join("out.pdf")).is_err());
+    }
+
+    fn crc32(data: &[u8]) -> u32 {
+        let mut crc = 0xFFFF_FFFFu32;
+        for &b in data {
+            crc ^= b as u32;
+            for _ in 0..8 {
+                crc = if crc & 1 != 0 {
+                    (crc >> 1) ^ 0xEDB8_8320
+                } else {
+                    crc >> 1
+                };
+            }
+        }
+        !crc
     }
 
     #[test]

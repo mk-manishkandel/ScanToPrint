@@ -62,13 +62,15 @@ pub async fn authorize(
         .await?;
     // Same answer for "no such job" and "wrong token": don't reveal which jobs exist.
     match row {
-        Some((hash,)) if hash == sha256_hex(&token) => Ok(sqlx::query_as(&format!(
-            "SELECT {} FROM jobs WHERE id = ?",
-            models::JOB_COLS
-        ))
-        .bind(id)
-        .fetch_one(&st.db)
-        .await?),
+        Some((hash,)) if crate::auth::ct_eq(hash.as_bytes(), sha256_hex(&token).as_bytes()) => {
+            Ok(sqlx::query_as(&format!(
+                "SELECT {} FROM jobs WHERE id = ?",
+                models::JOB_COLS
+            ))
+            .bind(id)
+            .fetch_one(&st.db)
+            .await?)
+        }
         _ => Err(AppError::NotFound),
     }
 }
@@ -103,18 +105,10 @@ async fn create_job(
     }
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
     let token = random_token();
-    // Retry in the (rare) case two customers grab the same daily number at once.
-    for _ in 0..5 {
-        let code = jobs_util::next_code(&st.db, &today).await?;
+    // The unique index on storage_dir settles races: on a clash, take the next number.
+    for attempt in 0..10 {
+        let code = jobs_util::next_code(&st.db, &today, attempt).await?;
         let rel = storage::job_rel_dir(&today, &code);
-        let exists: bool =
-            sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM jobs WHERE storage_dir = ?)")
-                .bind(&rel)
-                .fetch_one(&st.db)
-                .await?;
-        if exists {
-            continue;
-        }
         let res = sqlx::query(
             "INSERT INTO jobs(code, token_hash, customer_name, customer_phone, storage_dir) VALUES (?, ?, ?, ?, ?)",
         )
@@ -124,10 +118,16 @@ async fn create_job(
         .bind(clean_opt(req.customer_phone.clone(), 20))
         .bind(&rel)
         .execute(&st.db)
-        .await?;
-        return Ok(Json(
-            json!({ "id": res.last_insert_rowid(), "code": code, "token": token }),
-        ));
+        .await;
+        match res {
+            Ok(r) => {
+                return Ok(Json(
+                    json!({ "id": r.last_insert_rowid(), "code": code, "token": token }),
+                ));
+            }
+            Err(sqlx::Error::Database(e)) if e.is_unique_violation() => continue,
+            Err(e) => return Err(e.into()),
+        }
     }
     Err(AppError::Internal(anyhow::anyhow!(
         "could not allocate job code"
@@ -207,10 +207,16 @@ async fn upload(
                 settings.max_files_per_job
             )));
         }
-        let stored = format!("{:02}_{safe}", count + 1);
+        // A random tag keeps names unique even after files are removed and re-added,
+        // so an upload can never overwrite another file. The number keeps Explorer order.
+        let stored = format!("{:02}-{}_{safe}", count + 1, &random_token()[..6]);
         let final_path = dir.join(&stored);
         let part_path = dir.join(format!("{stored}.part"));
-        let mut out = tokio::fs::File::create(&part_path).await?;
+        let mut out = tokio::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&part_path)
+            .await?;
         let mut size: u64 = 0;
         let write_result: AppResult<()> = async {
             while let Some(chunk) = field
@@ -268,7 +274,7 @@ async fn delete_file(
 ) -> AppResult<Json<JobDetail>> {
     let job = authorize(&st, id, &headers, &q).await?;
     if job.status != "uploaded" {
-        return Err(bad("This job was already sent"));
+        return Err(already_sent());
     }
     let paths: Option<(String, Option<String>)> =
         sqlx::query_as("SELECT original_path, pdf_path FROM job_files WHERE id = ? AND job_id = ?")
@@ -325,23 +331,31 @@ async fn submit(
     Query(q): Query<TokenQuery>,
     Json(req): Json<SubmitReq>,
 ) -> AppResult<Json<JobDetail>> {
-    let job = authorize(&st, id, &headers, &q).await?;
-    if job.status != "uploaded" {
-        return Err(bad("This job was already sent"));
-    }
+    authorize(&st, id, &headers, &q).await?;
     ensure_has_files(&st, id).await?;
-    sqlx::query("UPDATE jobs SET mode = 'submit', status = 'submitted', notes = ?, updated_at = ? WHERE id = ?")
-        .bind(clean_opt(req.notes, 500))
-        .bind(crate::db::now())
-        .bind(id)
-        .execute(&st.db)
-        .await?;
+    // Conditional update: a double tap or retry can only submit once.
+    let res = sqlx::query(
+        "UPDATE jobs SET mode = 'submit', status = 'submitted', notes = ?, updated_at = ?
+         WHERE id = ? AND status = 'uploaded'",
+    )
+    .bind(clean_opt(req.notes, 500))
+    .bind(crate::db::now())
+    .bind(id)
+    .execute(&st.db)
+    .await?;
+    if res.rows_affected() == 0 {
+        return Err(already_sent());
+    }
     st.emit(Event::JobUpdated {
         job_id: id,
         status: "submitted".into(),
         new: true,
     });
     Ok(Json(models::job_detail(&st.db, id).await?))
+}
+
+fn already_sent() -> AppError {
+    AppError::Conflict("This job was already sent".into())
 }
 
 async fn ensure_has_files(st: &AppState, id: i64) -> AppResult<()> {
@@ -412,23 +426,19 @@ async fn self_print(
 ) -> AppResult<Json<JobDetail>> {
     let job = authorize(&st, id, &headers, &q).await?;
     if job.status != "uploaded" {
-        return Err(bad("This job was already sent"));
+        return Err(already_sent());
     }
     let plan = models::plan_print(&st.db, id, &req, true).await?;
     let outcome = payment::provider().charge(id, plan.total_price);
     if outcome == payment::PaymentOutcome::Pending {
         return Err(bad("Payment not completed"));
     }
-    sqlx::query(
-        "UPDATE jobs SET mode = 'self', estimated_price = ?, payment_status = ?, updated_at = ? WHERE id = ?",
-    )
-    .bind(plan.total_price)
-    .bind(outcome.as_db())
-    .bind(crate::db::now())
-    .bind(id)
-    .execute(&st.db)
-    .await?;
-    models::enqueue_plan(&st, id, &plan, "customer").await?;
+    // Claims the job and queues the runs in one transaction: prints at most once.
+    let claim = models::CustomerClaim {
+        price: plan.total_price,
+        payment_status: outcome.as_db(),
+    };
+    models::enqueue_plan(&st, id, &plan, "customer", Some(claim)).await?;
     st.emit(Event::JobUpdated {
         job_id: id,
         status: "queued".into(),

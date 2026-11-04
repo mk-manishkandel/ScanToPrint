@@ -72,10 +72,16 @@ async fn list_jobs(
         _ => return Err(bad("unknown view")),
     }
     if let Some(date) = q.date.filter(|d| !d.is_empty()) {
+        if chrono::NaiveDate::parse_from_str(&date, "%Y-%m-%d").is_err() {
+            return Err(bad("Invalid date"));
+        }
         sql.push_str(" AND storage_dir LIKE ?");
         binds.push(format!("{date}/%"));
     }
-    if let Some(text) = q.q.map(|s| s.trim().to_string()).filter(|s| !s.is_empty()) {
+    if let Some(text) =
+        q.q.map(|s| s.trim().chars().take(100).collect::<String>())
+            .filter(|s| !s.is_empty())
+    {
         sql.push_str(" AND (code LIKE ? OR customer_name LIKE ? OR customer_phone LIKE ?)");
         let like = format!("%{text}%");
         binds.extend([like.clone(), like.clone(), like]);
@@ -173,7 +179,7 @@ async fn print_job(
         .bind(id)
         .execute(&st.db)
         .await?;
-    models::enqueue_plan(&st, id, &plan, "staff").await?;
+    models::enqueue_plan(&st, id, &plan, "staff", None).await?;
     st.emit(Event::JobUpdated {
         job_id: id,
         status: "queued".into(),

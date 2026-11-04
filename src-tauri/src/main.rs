@@ -86,20 +86,29 @@ pub fn dashboard_url(app: &AppHandle, path: &str) -> String {
     format!("http://127.0.0.1:{port}{path}")
 }
 
-/// Show (or create) the dashboard window.
+/// Show (or create) the dashboard window, keeping whatever page staff had open.
 pub fn show_dashboard(app: &AppHandle) {
+    if let Some(win) = app.get_webview_window(MAIN_WINDOW) {
+        focus(&win);
+        return;
+    }
     open_path(app, "/admin");
 }
 
+fn focus(win: &tauri::WebviewWindow) {
+    let _ = win.unminimize();
+    let _ = win.show();
+    let _ = win.set_focus();
+}
+
+/// Show the window at a specific page (e.g. the QR poster).
 pub fn open_path(app: &AppHandle, path: &str) {
     let url = dashboard_url(app, path);
     if let Some(win) = app.get_webview_window(MAIN_WINDOW) {
         if let Ok(parsed) = url.parse() {
             let _ = win.navigate(parsed);
         }
-        let _ = win.unminimize();
-        let _ = win.show();
-        let _ = win.set_focus();
+        focus(&win);
         return;
     }
     let Ok(parsed) = url.parse() else { return };

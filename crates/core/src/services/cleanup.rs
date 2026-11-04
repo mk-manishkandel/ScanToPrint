@@ -29,8 +29,29 @@ pub async fn run_once(state: &AppState) -> anyhow::Result<usize> {
         chrono::Local::now().date_naive() - chrono::Duration::days(settings.retention_days as i64);
     let root = storage::storage_root(&state.config.data_dir);
     let removed = remove_older_than(&root, cutoff)?;
-    let _ = std::fs::remove_dir_all(state.config.data_dir.join("tmp"));
+    remove_stale_tmp(
+        &state.config.data_dir.join("tmp"),
+        Duration::from_secs(3600),
+    );
     Ok(removed)
+}
+
+/// Remove leftover conversion folders, but never ones a conversion may still be using.
+fn remove_stale_tmp(tmp: &Path, older_than: Duration) {
+    let Ok(entries) = std::fs::read_dir(tmp) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let stale = entry
+            .metadata()
+            .and_then(|m| m.modified())
+            .ok()
+            .and_then(|t| t.elapsed().ok())
+            .is_some_and(|age| age > older_than);
+        if stale {
+            let _ = std::fs::remove_dir_all(entry.path());
+        }
+    }
 }
 
 fn remove_older_than(root: &Path, cutoff: chrono::NaiveDate) -> anyhow::Result<usize> {
@@ -54,6 +75,16 @@ fn remove_older_than(root: &Path, cutoff: chrono::NaiveDate) -> anyhow::Result<u
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn keeps_fresh_tmp_folders() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(dir.path().join("conv-abc")).unwrap();
+        remove_stale_tmp(dir.path(), Duration::from_secs(3600));
+        assert!(dir.path().join("conv-abc").exists());
+        remove_stale_tmp(dir.path(), Duration::ZERO);
+        assert!(!dir.path().join("conv-abc").exists());
+    }
 
     #[test]
     fn removes_only_old_dated_folders() {

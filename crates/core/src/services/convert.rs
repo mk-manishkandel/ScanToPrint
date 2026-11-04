@@ -23,7 +23,7 @@ pub const PDF_EXT: &[&str] = &["pdf"];
 pub const IMAGE_EXT: &[&str] = &["jpg", "jpeg", "png", "webp", "bmp", "gif", "tif", "tiff"];
 pub const OFFICE_EXT: &[&str] = &[
     "doc", "docx", "odt", "rtf", "txt", "csv", "xls", "xlsx", "ods", "ppt", "pptx", "odp", "pps",
-    "ppsx", "wpd", "pages", "key", "numbers", "html", "htm", "xps",
+    "ppsx", "wpd", "pages", "key", "numbers", "xps",
 ];
 /// Accepted but not printable by us; staff can still download the original.
 pub const OTHER_EXT: &[&str] = &["heic", "heif", "svg", "eps", "ai", "psd", "cdr", "zip"];
@@ -45,6 +45,18 @@ pub fn is_allowed(ext: &str) -> bool {
 }
 
 const OFFICE_TIMEOUT: Duration = Duration::from_secs(120);
+/// Page counting / image conversion should take seconds; anything longer is a hostile file.
+const BLOCKING_TIMEOUT: Duration = Duration::from_secs(60);
+
+/// Run CPU-bound file work off the async runtime, with a time limit.
+async fn blocking<T: Send + 'static>(
+    f: impl FnOnce() -> anyhow::Result<T> + Send + 'static,
+) -> anyhow::Result<T> {
+    tokio::time::timeout(BLOCKING_TIMEOUT, tokio::task::spawn_blocking(f))
+        .await
+        .context("processing timed out")?
+        .context("processing crashed")?
+}
 
 /// Start the worker. Also re-queues files left pending by a previous run.
 pub fn start(state: AppState, mut rx: mpsc::UnboundedReceiver<i64>) {
@@ -60,8 +72,22 @@ pub fn start(state: AppState, mut rx: mpsc::UnboundedReceiver<i64>) {
             }
         }
         while let Some(file_id) = rx.recv().await {
-            if let Err(e) = process(&state, file_id).await {
-                tracing::error!("conversion of file {file_id} failed: {e:#}");
+            // Each file runs in its own task so a panic (e.g. a malformed file tripping a
+            // parser bug) fails that file only and never stops the worker.
+            let st = state.clone();
+            let outcome = tokio::spawn(async move { process(&st, file_id).await }).await;
+            match outcome {
+                Ok(Ok(())) => {}
+                Ok(Err(e)) => tracing::error!("conversion of file {file_id} failed: {e:#}"),
+                Err(join) => {
+                    tracing::error!("conversion of file {file_id} crashed: {join}");
+                    let _ = mark_failed(
+                        &state,
+                        file_id,
+                        "This file couldn't be read. It may be damaged.",
+                    )
+                    .await;
+                }
             }
         }
     });
@@ -121,6 +147,22 @@ async fn process(st: &AppState, file_id: i64) -> anyhow::Result<()> {
     Ok(())
 }
 
+async fn mark_failed(st: &AppState, file_id: i64, msg: &str) -> anyhow::Result<()> {
+    let job_id: Option<i64> = sqlx::query_scalar("SELECT job_id FROM job_files WHERE id = ?")
+        .bind(file_id)
+        .fetch_optional(&st.db)
+        .await?;
+    sqlx::query("UPDATE job_files SET conversion_status = 'failed', error = ? WHERE id = ?")
+        .bind(msg)
+        .bind(file_id)
+        .execute(&st.db)
+        .await?;
+    if let Some(job_id) = job_id {
+        st.emit(Event::FileUpdated { job_id, file_id });
+    }
+    Ok(())
+}
+
 fn friendly_error(e: &anyhow::Error) -> String {
     let msg = format!("{e:#}");
     if msg.contains("LibreOffice is not installed") {
@@ -158,20 +200,19 @@ async fn convert_one(
     match kind {
         Kind::Pdf => {
             let src = original.to_path_buf();
-            let pages = tokio::task::spawn_blocking(move || pdf::page_count(&src)).await??;
+            let pages = blocking(move || pdf::page_count(&src)).await?;
             tokio::fs::copy(original, &pdf_abs).await?;
             Ok(Some((pdf_rel_str, pages)))
         }
         Kind::Image => {
             let (src, dest) = (original.to_path_buf(), pdf_abs.clone());
-            let pages =
-                tokio::task::spawn_blocking(move || pdf::image_to_pdf(&src, &dest)).await??;
+            let pages = blocking(move || pdf::image_to_pdf(&src, &dest)).await?;
             Ok(Some((pdf_rel_str, pages)))
         }
         Kind::Office => {
             office_to_pdf(&st.config.data_dir, original, &pdf_abs).await?;
             let dest = pdf_abs.clone();
-            let pages = tokio::task::spawn_blocking(move || pdf::page_count(&dest)).await??;
+            let pages = blocking(move || pdf::page_count(&dest)).await?;
             Ok(Some((pdf_rel_str, pages)))
         }
         Kind::Unsupported => Ok(None),
@@ -289,5 +330,9 @@ mod tests {
         assert!(is_allowed("heic"));
         assert!(!is_allowed("exe"));
         assert!(!is_allowed("bat"));
+        assert!(
+            !is_allowed("html"),
+            "HTML could run scripts when opened on the shop PC"
+        );
     }
 }

@@ -2,10 +2,17 @@
 
 use crate::settings::Settings;
 
+const MAX_SPEC_LEN: usize = 200;
+/// Upper bound on selected pages (repeats included), so input can't blow up memory.
+const MAX_SELECTED: usize = 10_000;
+
 /// Parse a page range like `"1-3, 5, 8-"` against a document with `total` pages.
 /// Empty / "all" means every page. Returns the selected 1-based page numbers in order.
 pub fn parse_range(spec: &str, total: u32) -> Result<Vec<u32>, String> {
     let spec = spec.trim();
+    if spec.len() > MAX_SPEC_LEN {
+        return Err("That page list is too long".into());
+    }
     if total == 0 {
         return Err("This document has no pages".into());
     }
@@ -34,6 +41,9 @@ pub fn parse_range(spec: &str, total: u32) -> Result<Vec<u32>, String> {
                 "\"{part}\" is not valid — this document has {total} page{}",
                 if total == 1 { "" } else { "s" }
             ));
+        }
+        if pages.len() as u64 + (b - a + 1) as u64 > MAX_SELECTED as u64 {
+            return Err("Too many pages selected".into());
         }
         pages.extend(a..=b);
     }
@@ -115,6 +125,9 @@ mod tests {
         assert!(parse_range("7", 5).is_err());
         assert!(parse_range("abc", 5).is_err());
         assert!(parse_range(",", 5).is_err());
+        assert!(parse_range(&"1,".repeat(150), 5).is_err(), "over-long spec");
+        let big = ["1-5000"; 3].join(",");
+        assert!(parse_range(&big, 5000).is_err(), "too many pages");
     }
 
     #[test]

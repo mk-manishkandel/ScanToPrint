@@ -52,3 +52,24 @@ jobs:
 
       - name: tests
         run: cargo test --workspace --locked
+
+  audit:
+    name: security audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: npm audit (high and critical)
+        run: npm audit --audit-level=high
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+
+      - name: cargo audit (RustSec advisories)
+        run: cargo audit

@@ -13,5 +13,6 @@ repository = "https://github.com/mk-manishkandel/ScanToPrint"
 codegen-units = 1
 lto = true
 opt-level = "s"
-panic = "abort"
+# Unwind (not abort) so a panic while parsing a bad file fails one task, not the whole app.
+panic = "unwind"
 strip = true

@@ -22,6 +22,12 @@ pub fn hash_password(password: &str) -> anyhow::Result<String> {
         .map_err(|e| anyhow::anyhow!("hashing password: {e}"))
 }
 
+/// A valid hash of a random password, used when the username doesn't exist.
+pub fn dummy_hash() -> &'static str {
+    static HASH: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    HASH.get_or_init(|| hash_password(&random_token()).unwrap_or_default())
+}
+
 pub fn verify_password(password: &str, hash: &str) -> bool {
     PasswordHash::new(hash)
         .map(|parsed| {
@@ -43,9 +49,21 @@ pub fn sha256_hex(s: &str) -> String {
     hex::encode(Sha256::digest(s.as_bytes()))
 }
 
+/// Constant-time equality for secrets (avoids leaking how many leading bytes matched).
+pub fn ct_eq(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    a.iter().zip(b).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
+}
+
 pub fn validate_password(password: &str) -> AppResult<()> {
-    if password.chars().count() < 6 {
-        return Err(crate::error::bad("Password must be at least 6 characters"));
+    let n = password.chars().count();
+    if n < 8 {
+        return Err(crate::error::bad("Password must be at least 8 characters"));
+    }
+    if n > 128 {
+        return Err(crate::error::bad("Password is too long"));
     }
     Ok(())
 }

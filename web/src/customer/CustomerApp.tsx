@@ -145,7 +145,7 @@ function UploadStep({
   async function remove(fid: number) {
     if (!job || !headers) return;
     try {
-      onJob(await request<Job>("DELETE", `/api/jobs/${job.id}/files/${fid}`, headers["X-Job-Token"]));
+      onJob(await api.del<Job>(`/api/jobs/${job.id}/files/${fid}`, headers));
     } catch (e) {
       setError((e as Error).message);
     }
@@ -424,11 +424,4 @@ function uploadWithProgress(id: number, token: string, files: File[], onProgress
     xhr.onerror = () => reject(new Error("Upload failed. Check you're on the shop Wi-Fi."));
     xhr.send(form);
   });
-}
-
-async function request<T>(method: string, url: string, token: string): Promise<T> {
-  const res = await fetch(url, { method, headers: { "X-Job-Token": token } });
-  const data = await res.json().catch(() => null);
-  if (!res.ok) throw new Error(data?.error ?? `Error ${res.status}`);
-  return data as T;
 }

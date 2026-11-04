@@ -1,6 +1,6 @@
 //! Serves the built React app (`web/dist`), compiled into the binary.
 
-use axum::http::{StatusCode, Uri, header};
+use axum::http::{HeaderValue, StatusCode, Uri, header};
 use axum::response::{IntoResponse, Response};
 use rust_embed::RustEmbed;
 
@@ -8,6 +8,11 @@ use rust_embed::RustEmbed;
 #[folder = "$CARGO_MANIFEST_DIR/../../web/dist"]
 #[allow_missing = true]
 struct WebDist;
+
+/// Only our own scripts may run; no plugins; not embeddable by other sites.
+const CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; \
+     img-src 'self' data: blob:; connect-src 'self' ws: wss:; frame-src 'self'; \
+     object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'self'";
 
 pub async fn serve(uri: Uri) -> Response {
     let path = uri.path().trim_start_matches('/');
@@ -24,7 +29,7 @@ pub async fn serve(uri: Uri) -> Response {
         } else {
             "no-cache"
         };
-        return (
+        let mut resp = (
             [
                 (header::CONTENT_TYPE, mime.as_ref().to_string()),
                 (header::CACHE_CONTROL, cache.to_string()),
@@ -32,6 +37,13 @@ pub async fn serve(uri: Uri) -> Response {
             file.data,
         )
             .into_response();
+        if path.ends_with(".html") {
+            resp.headers_mut().insert(
+                header::CONTENT_SECURITY_POLICY,
+                HeaderValue::from_static(CSP),
+            );
+        }
+        return resp;
     }
 
     // Client-side routes (/, /job/..., /admin/...) all load index.html.
@@ -40,6 +52,7 @@ pub async fn serve(uri: Uri) -> Response {
             [
                 (header::CONTENT_TYPE, "text/html; charset=utf-8"),
                 (header::CACHE_CONTROL, "no-cache"),
+                (header::CONTENT_SECURITY_POLICY, CSP),
             ],
             index.data,
         )

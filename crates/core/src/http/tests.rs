@@ -13,12 +13,17 @@ pub(crate) async fn test_app() -> (axum::Router, tempfile::TempDir) {
 }
 
 pub(crate) async fn test_app_with_state() -> (axum::Router, AppState, tempfile::TempDir) {
+    test_app_from([127, 0, 0, 1]).await
+}
+
+/// App whose every request appears to come from `ip` (e.g. a phone on the shop Wi-Fi).
+pub(crate) async fn test_app_from(ip: [u8; 4]) -> (axum::Router, AppState, tempfile::TempDir) {
     let dir = tempfile::tempdir().unwrap();
     let db = crate::db::open_memory().await.unwrap();
     let (state, workers) = AppState::new(db, Config::new(dir.path().to_path_buf(), 0));
     workers.start(&state);
     let app = super::router(state.clone()).layer(axum::extract::connect_info::MockConnectInfo(
-        std::net::SocketAddr::from(([192, 168, 1, 50], 5555)),
+        std::net::SocketAddr::from((ip, 5555)),
     ));
     (app, state, dir)
 }
@@ -141,7 +146,7 @@ async fn admin_routes_need_login_and_staff_cannot_change_settings() {
         &app,
         "POST",
         "/api/admin/users",
-        Some(json!({"name":"Ram","username":"ram","password":"pass1234","role":"staff"})),
+        Some(json!({"name":"Ram","username":"ram","password":"pass12345","role":"staff"})),
         Some(&owner),
     )
     .await;
@@ -151,7 +156,7 @@ async fn admin_routes_need_login_and_staff_cannot_change_settings() {
         &app,
         "POST",
         "/api/admin/login",
-        Some(json!({"username":"ram","password":"pass1234"})),
+        Some(json!({"username":"ram","password":"pass12345"})),
         None,
     )
     .await
@@ -510,4 +515,225 @@ async fn self_print_flow_with_payment_skipped() {
             settings[0]
         );
     }
+}
+
+// ---------------- security & robustness regressions ----------------
+
+#[tokio::test]
+async fn first_run_setup_only_from_the_shop_pc() {
+    let (lan, _, _d) = test_app_from([192, 168, 1, 77]).await;
+    let r = call(
+        &lan,
+        "POST",
+        "/api/setup",
+        Some(
+            json!({"shop_name":"X","name":"Intruder","username":"intruder","password":"secret123"}),
+        ),
+        None,
+    )
+    .await;
+    assert_eq!(r.status, StatusCode::FORBIDDEN);
+    let r = call(&lan, "GET", "/api/setup/status", None, None).await;
+    assert_eq!(r.json["needs_setup"], true, "no owner was created");
+}
+
+#[tokio::test]
+async fn short_passwords_rejected() {
+    let (app, _d) = test_app().await;
+    let r = call(
+        &app,
+        "POST",
+        "/api/setup",
+        Some(json!({"shop_name":"S","name":"O","username":"owner","password":"short1"})),
+        None,
+    )
+    .await;
+    assert_eq!(r.status, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn cross_site_requests_to_staff_api_are_blocked() {
+    let (app, _d) = test_app().await;
+    let owner = setup_owner(&app).await;
+    let req = |origin: &str| {
+        Request::post("/api/admin/cleanup")
+            .header(header::HOST, "192.168.1.10:8080")
+            .header(header::ORIGIN, origin)
+            .header(header::COOKIE, &owner)
+            .body(Body::empty())
+            .unwrap()
+    };
+    let evil = app
+        .clone()
+        .oneshot(req("http://evil.example"))
+        .await
+        .unwrap();
+    assert_eq!(evil.status(), StatusCode::FORBIDDEN);
+    let same = app
+        .clone()
+        .oneshot(req("http://192.168.1.10:8080"))
+        .await
+        .unwrap();
+    assert_eq!(same.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn html_has_security_headers() {
+    let (app, _d) = test_app().await;
+    let res = app
+        .clone()
+        .oneshot(Request::get("/admin").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(res.headers()[header::X_CONTENT_TYPE_OPTIONS], "nosniff");
+    if res.status() == StatusCode::OK {
+        // Only when the web UI has been built into the binary.
+        let csp = res.headers()[header::CONTENT_SECURITY_POLICY]
+            .to_str()
+            .unwrap();
+        assert!(csp.contains("script-src 'self'"));
+    }
+}
+
+#[tokio::test]
+async fn login_is_rate_limited() {
+    let (app, _d) = test_app().await;
+    setup_owner(&app).await;
+    let mut last = StatusCode::OK;
+    for _ in 0..11 {
+        last = call(
+            &app,
+            "POST",
+            "/api/admin/login",
+            Some(json!({"username":"owner","password":"wrong-guess"})),
+            None,
+        )
+        .await
+        .status;
+    }
+    assert_eq!(last, StatusCode::BAD_REQUEST);
+    // Even the right password is refused while locked out.
+    let r = call(
+        &app,
+        "POST",
+        "/api/admin/login",
+        Some(json!({"username":"owner","password":"secret123"})),
+        None,
+    )
+    .await;
+    assert!(r.json["error"].as_str().unwrap().contains("Too many"));
+}
+
+#[tokio::test]
+async fn double_submit_and_double_self_print_happen_once() {
+    let (app, state, dir) = test_app_with_state().await;
+    setup_owner(&app).await;
+    sqlx::query(
+        "INSERT INTO printers(system_name, display_name, is_active, allow_self_print) VALUES (?, 'P', 1, 1)",
+    )
+    .bind(crate::services::printers::MOCK_PRINTER)
+    .execute(&state.db)
+    .await
+    .unwrap();
+    let pid: i64 = sqlx::query_scalar("SELECT id FROM printers")
+        .fetch_one(&state.db)
+        .await
+        .unwrap();
+
+    // Self-print twice at the same time.
+    let (id, token, _) = new_job(&app).await;
+    upload(&app, id, &token, &[("a.pdf", sample_pdf(dir.path(), "d"))]).await;
+    let job = wait_converted(&app, id, &token).await;
+    let fid = job["files"][0]["id"].as_i64().unwrap();
+    let body = json!({"printer_id": pid, "items":[{"file_id": fid}]});
+    let uri = format!("/api/jobs/{id}/self-print?t={token}");
+    let (a, b) = tokio::join!(
+        call(&app, "POST", &uri, Some(body.clone()), None),
+        call(&app, "POST", &uri, Some(body.clone()), None)
+    );
+    let mut statuses = [a.status, b.status];
+    statuses.sort();
+    assert_eq!(statuses, [StatusCode::OK, StatusCode::CONFLICT]);
+    let runs: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM print_runs WHERE job_id = ?")
+        .bind(id)
+        .fetch_one(&state.db)
+        .await
+        .unwrap();
+    assert_eq!(runs, 1, "printed exactly once");
+
+    // Submit twice.
+    let (id2, token2, _) = new_job(&app).await;
+    upload(
+        &app,
+        id2,
+        &token2,
+        &[("b.pdf", sample_pdf(dir.path(), "e"))],
+    )
+    .await;
+    let uri = format!("/api/jobs/{id2}/submit?t={token2}");
+    let first = call(&app, "POST", &uri, Some(json!({})), None).await;
+    let second = call(&app, "POST", &uri, Some(json!({})), None).await;
+    assert_eq!(first.status, StatusCode::OK);
+    assert_eq!(second.status, StatusCode::CONFLICT);
+}
+
+#[tokio::test]
+async fn re_adding_a_removed_file_never_overwrites_another() {
+    let (app, _d) = test_app().await;
+    let (id, token, _) = new_job(&app).await;
+    let r = upload(
+        &app,
+        id,
+        &token,
+        &[("x.txt", b"first".to_vec()), ("y.txt", b"second".to_vec())],
+    )
+    .await;
+    let first = r.json["files"][0]["id"].as_i64().unwrap();
+    // Remove the first, then upload a new file with the second's name.
+    call(
+        &app,
+        "DELETE",
+        &format!("/api/jobs/{id}/files/{first}?t={token}"),
+        None,
+        None,
+    )
+    .await;
+    let r = upload(&app, id, &token, &[("y.txt", b"third".to_vec())]).await;
+    assert_eq!(r.json["files"].as_array().unwrap().len(), 2);
+
+    let owner = setup_owner(&app).await;
+    let mut bodies = Vec::new();
+    for f in r.json["files"].as_array().unwrap() {
+        let fid = f["id"].as_i64().unwrap();
+        let res = app
+            .clone()
+            .oneshot(
+                Request::get(format!("/api/admin/files/{fid}/original"))
+                    .header(header::COOKIE, &owner)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        bodies.push(res.into_body().collect().await.unwrap().to_bytes().to_vec());
+    }
+    assert_eq!(bodies, vec![b"second".to_vec(), b"third".to_vec()]);
+}
+
+#[tokio::test]
+async fn simultaneous_customers_get_distinct_codes() {
+    let (app, _d) = test_app().await;
+    let mut handles = Vec::new();
+    for _ in 0..8 {
+        let app = app.clone();
+        handles.push(tokio::spawn(async move { new_job(&app).await.2 }));
+    }
+    let mut codes = Vec::new();
+    for h in handles {
+        codes.push(h.await.unwrap());
+    }
+    let n = codes.len();
+    codes.sort();
+    codes.dedup();
+    assert_eq!(codes.len(), n, "{codes:?}");
 }

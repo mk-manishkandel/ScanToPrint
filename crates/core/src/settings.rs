@@ -54,6 +54,9 @@ impl Settings {
         if self.shop_name.trim().is_empty() || self.shop_name.len() > 80 {
             return Err(bad("Shop name must be 1–80 characters"));
         }
+        if self.currency.trim().is_empty() || self.currency.chars().count() > 10 {
+            return Err(bad("Currency symbol must be 1–10 characters"));
+        }
         if !(1..=365).contains(&self.retention_days) {
             return Err(bad("Keep files for 1–365 days"));
         }

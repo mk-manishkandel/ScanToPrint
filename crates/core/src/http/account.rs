@@ -1,6 +1,8 @@
 //! First-run setup, login/logout, shop settings and staff accounts.
 
-use axum::extract::{Path, State};
+use std::net::SocketAddr;
+
+use axum::extract::{ConnectInfo, Path, State};
 use axum::routing::{get, patch, post};
 use axum::{Json, Router};
 use axum_extra::extract::cookie::CookieJar;
@@ -64,9 +66,15 @@ struct SetupReq {
 /// Creates the owner account. Only works while no owner exists.
 async fn setup(
     State(st): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     jar: CookieJar,
     Json(req): Json<SetupReq>,
 ) -> AppResult<(CookieJar, Json<User>)> {
+    // Before an owner exists, anyone on the Wi-Fi could otherwise claim the shop.
+    // The setup wizard runs in the app window on the shop PC, i.e. from localhost.
+    if !addr.ip().is_loopback() {
+        return Err(AppError::Forbidden);
+    }
     if !needs_setup(&st).await? {
         return Err(AppError::Conflict("Setup is already complete".into()));
     }
@@ -76,6 +84,17 @@ async fn setup(
     };
     settings.validate()?;
     let user = insert_user(&st, &req.name, &req.username, &req.password, "owner").await?;
+    // Two simultaneous setups: keep only the first owner.
+    let first: i64 = sqlx::query_scalar("SELECT MIN(id) FROM users WHERE role = 'owner'")
+        .fetch_one(&st.db)
+        .await?;
+    if first != user.id {
+        sqlx::query("DELETE FROM users WHERE id = ?")
+            .bind(user.id)
+            .execute(&st.db)
+            .await?;
+        return Err(AppError::Conflict("Setup is already complete".into()));
+    }
     settings.save(&st.db).await?;
     let token = create_session(&st.db, user.id).await?;
     Ok((jar.add(session_cookie(token)), Json(user)))
@@ -89,17 +108,32 @@ struct LoginReq {
 
 async fn login(
     State(st): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     jar: CookieJar,
     Json(req): Json<LoginReq>,
 ) -> AppResult<(CookieJar, Json<User>)> {
+    if !st
+        .limiter
+        .check(addr.ip(), "login", 10, std::time::Duration::from_secs(300))
+    {
+        return Err(bad(
+            "Too many login attempts. Wait 5 minutes and try again.",
+        ));
+    }
+    if req.username.len() > 64 || req.password.len() > 256 {
+        return Err(bad("Wrong username or password"));
+    }
     let row: Option<(i64, String)> =
         sqlx::query_as("SELECT id, password_hash FROM users WHERE username = ? AND active = 1")
             .bind(req.username.trim())
             .fetch_optional(&st.db)
             .await?;
-    let ok = row
+    // Always run one hash check so response time doesn't reveal whether a username exists.
+    let hash = row
         .as_ref()
-        .is_some_and(|(_, hash)| auth::verify_password(&req.password, hash));
+        .map(|(_, h)| h.as_str())
+        .unwrap_or_else(|| auth::dummy_hash());
+    let ok = auth::verify_password(&req.password, hash) && row.is_some();
     if !ok {
         // Slow down password guessing.
         tokio::time::sleep(std::time::Duration::from_millis(600)).await;

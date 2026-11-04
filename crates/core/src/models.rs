@@ -243,14 +243,36 @@ pub async fn plan_print(
     })
 }
 
+/// Set when a customer self-prints: the job must still be un-sent, and is claimed atomically.
+pub struct CustomerClaim {
+    pub price: f64,
+    pub payment_status: &'static str,
+}
+
 /// Inserts print runs for a plan and queues them. Returns run ids.
 pub async fn enqueue_plan(
     st: &crate::state::AppState,
     job_id: i64,
     plan: &PrintPlan,
     triggered_by: &str,
+    claim: Option<CustomerClaim>,
 ) -> AppResult<Vec<i64>> {
     let mut tx = st.db.begin().await?;
+    if let Some(c) = claim {
+        let res = sqlx::query(
+            "UPDATE jobs SET mode = 'self', status = 'queued', estimated_price = ?, payment_status = ?,
+                             updated_at = ? WHERE id = ? AND status = 'uploaded'",
+        )
+        .bind(c.price)
+        .bind(c.payment_status)
+        .bind(crate::db::now())
+        .bind(job_id)
+        .execute(&mut *tx)
+        .await?;
+        if res.rows_affected() == 0 {
+            return Err(AppError::Conflict("This job was already sent".into()));
+        }
+    }
     let mut ids = Vec::new();
     for it in &plan.items {
         let r = sqlx::query(

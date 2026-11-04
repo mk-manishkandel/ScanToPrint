@@ -110,8 +110,24 @@ pub fn start(state: AppState, mut rx: mpsc::UnboundedReceiver<i64>) {
             }
         }
         while let Some(run_id) = rx.recv().await {
-            if let Err(e) = process(&state, run_id).await {
-                tracing::error!("print run {run_id}: {e:#}");
+            // Isolated per run: a panic fails this run only, the worker keeps going.
+            let st = state.clone();
+            match tokio::spawn(async move { process(&st, run_id).await }).await {
+                Ok(Ok(())) => {}
+                Ok(Err(e)) => tracing::error!("print run {run_id}: {e:#}"),
+                Err(join) => {
+                    tracing::error!("print run {run_id} crashed: {join}");
+                    if let Ok(Some(job_id)) =
+                        sqlx::query_scalar::<_, i64>("SELECT job_id FROM print_runs WHERE id = ?")
+                            .bind(run_id)
+                            .fetch_optional(&state.db)
+                            .await
+                    {
+                        let _ =
+                            set_run(&state, run_id, job_id, "failed", Some("Internal error")).await;
+                        let _ = update_job_after_run(&state, job_id).await;
+                    }
+                }
             }
         }
     });

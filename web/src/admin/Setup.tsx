@@ -42,7 +42,7 @@ export default function Setup({ onDone }: { onDone: (u: User) => void }) {
             <Input autoComplete="username" value={form.username} onChange={set("username")} />
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Password">
+            <Field label="Password" hint="At least 8 characters.">
               <Input type="password" autoComplete="new-password" value={form.password} onChange={set("password")} />
             </Field>
             <Field label="Confirm">
