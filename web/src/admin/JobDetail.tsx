@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import {
   ArrowLeft, CheckCircle2, Clock, Download, ExternalLink, Eye, EyeOff, FolderOpen, MessageSquareQuote, PackageCheck, Phone,
   Printer, RefreshCw, Store, User,
@@ -16,6 +16,10 @@ export default function JobDetail() {
   const { id } = useParams();
   const [job, setJob] = useState<Job | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Go back to wherever the job was opened from (History keeps its filters in the address).
+  const fromState = (useLocation().state as { back?: string } | null)?.back;
+  const fromHistory = !!fromState?.startsWith("/admin/history");
+  const backTo = fromHistory ? fromState! : "/admin";
   const [preview, setPreview] = useState<number | null>(null);
   const previewRef = useRef<HTMLElement>(null);
   // Bring the preview into view when one is opened (not on every live refresh).
@@ -41,8 +45,8 @@ export default function JobDetail() {
 
   return (
     <div className="space-y-6">
-      <Link to="/admin" className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-gold hover:text-gold-soft">
-        <ArrowLeft aria-hidden className="h-4 w-4" /> Back to queue
+      <Link to={backTo} className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-gold hover:text-gold-soft">
+        <ArrowLeft aria-hidden className="h-4 w-4" /> {fromHistory ? "Back to history" : "Back to queue"}
       </Link>
 
       <Card className="!p-6 animate-fade-in">

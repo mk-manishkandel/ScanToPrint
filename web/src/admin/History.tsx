@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { FileStack, Files, Inbox, History as HistoryIcon, Printer, Search, Store, Wallet, X, type LucideIcon } from "lucide-react";
 import { api, STATUS_LABEL, STATUS_TONE, type Job } from "../api";
 import { Badge, Button, EmptyState, ErrorText, Input, PageHeader, Spinner } from "../components/ui";
@@ -7,8 +7,19 @@ import { DatePicker } from "../components/pickers";
 
 export default function History() {
   const [jobs, setJobs] = useState<Job[] | null>(null);
-  const [q, setQ] = useState("");
-  const [date, setDate] = useState("");
+  // Filters are mirrored into the address so "Back to history" returns to the same list.
+  // The text box keeps its own state so fast typing never waits on navigation.
+  const [params, setParams] = useSearchParams();
+  const [q, setQ] = useState(() => params.get("q") ?? "");
+  const [date, setDate] = useState(() => params.get("date") ?? "");
+  useEffect(() => {
+    const next = new URLSearchParams();
+    if (q) next.set("q", q);
+    if (date) next.set("date", date);
+    if (next.toString() !== params.toString()) setParams(next, { replace: true });
+  }, [q, date]); // eslint-disable-line react-hooks/exhaustive-deps
+  const location = useLocation();
+  const back = { back: location.pathname + location.search };
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
@@ -27,7 +38,7 @@ export default function History() {
   const fmtDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
   const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
   const money = (n: number) => (n ? n.toFixed(2) : "—");
-  const open = (id: number) => navigate(`/admin/jobs/${id}`);
+  const open = (id: number) => navigate(`/admin/jobs/${id}`, { state: back });
 
   return (
     <div className="space-y-6">
@@ -90,7 +101,7 @@ export default function History() {
                 {list.map((j) => (
                   <tr key={j.id} onClick={() => open(j.id)} className="cursor-pointer align-middle transition hover:bg-navy-hover">
                     <td className="px-5 py-3">
-                      <Link to={`/admin/jobs/${j.id}`} className="font-bold tabular-nums text-gold hover:text-gold-soft" onClick={(e) => e.stopPropagation()}>
+                      <Link to={`/admin/jobs/${j.id}`} state={back} className="font-bold tabular-nums text-gold hover:text-gold-soft" onClick={(e) => e.stopPropagation()}>
                         {j.code}
                       </Link>
                     </td>
@@ -119,7 +130,7 @@ export default function History() {
           <ul className="space-y-2 md:hidden">
             {list.map((j) => (
               <li key={j.id}>
-                <Link to={`/admin/jobs/${j.id}`} className="block rounded-2xl bg-ink p-4 ring-1 ring-line transition hover:bg-navy-hover">
+                <Link to={`/admin/jobs/${j.id}`} state={back} className="block rounded-2xl bg-ink p-4 ring-1 ring-line transition hover:bg-navy-hover">
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-lg font-bold tabular-nums text-gold">{j.code}</span>
                     <Badge tone={STATUS_TONE[j.status]}>{STATUS_LABEL[j.status]}</Badge>
