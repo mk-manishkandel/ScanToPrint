@@ -67,29 +67,29 @@ export default function History() {
           <div className="hidden overflow-hidden rounded-2xl bg-ink ring-1 ring-line animate-fade-in md:block">
             <table className="w-full table-fixed text-sm">
               <colgroup>
-                <col className="w-[13%]" />
-                <col className="w-[24%]" />
+                <col className="w-[11%]" />
+                <col className="w-[23%]" />
                 <col className="w-[17%]" />
-                <col className="w-[12%]" />
-                <col className="w-[8%]" />
-                <col className="w-[8%]" />
-                <col className="w-[18%]" />
+                <col className="w-[14%]" />
+                <col className="w-[10%]" />
+                <col className="w-[11%]" />
+                <col className="w-[14%]" />
               </colgroup>
               <thead className="bg-midnight text-left text-xs uppercase tracking-wider text-steel">
                 <tr>
-                  <th scope="col" className="px-4 py-3 font-medium">Code</th>
+                  <th scope="col" className="px-5 py-3 font-medium">Code</th>
                   <th scope="col" className="px-4 py-3 font-medium">Customer</th>
                   <th scope="col" className="px-4 py-3 font-medium">Date</th>
                   <th scope="col" className="px-4 py-3 font-medium">Type</th>
                   <th scope="col" className="px-4 py-3 text-right font-medium">Pages</th>
                   <th scope="col" className="px-4 py-3 text-right font-medium">Amount</th>
-                  <th scope="col" className="px-4 py-3 font-medium">Status</th>
+                  <th scope="col" className="px-5 py-3 text-right font-medium">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
                 {list.map((j) => (
                   <tr key={j.id} onClick={() => open(j.id)} className="cursor-pointer align-middle transition hover:bg-navy-hover">
-                    <td className="px-4 py-3">
+                    <td className="px-5 py-3">
                       <Link to={`/admin/jobs/${j.id}`} className="font-bold tabular-nums text-gold hover:text-gold-soft" onClick={(e) => e.stopPropagation()}>
                         {j.code}
                       </Link>
@@ -108,7 +108,7 @@ export default function History() {
                       <div className="text-xs text-steel">{j.files.length} {j.files.length === 1 ? "file" : "files"}</div>
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums">{money(j.estimated_price)}</td>
-                    <td className="px-4 py-3"><Badge tone={STATUS_TONE[j.status]}>{STATUS_LABEL[j.status]}</Badge></td>
+                    <td className="px-5 py-3 text-right"><Badge tone={STATUS_TONE[j.status]}>{STATUS_LABEL[j.status]}</Badge></td>
                   </tr>
                 ))}
               </tbody>
