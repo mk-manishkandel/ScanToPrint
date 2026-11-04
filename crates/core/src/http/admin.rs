@@ -457,6 +457,10 @@ async fn system(State(st): State<AppState>, _: Staff) -> AppResult<Json<Value>> 
         "portal_urls": network::portal_urls(port),
         "port": port,
         "libreoffice": convert::find_soffice().is_some(),
+        // Microsoft Office apps used first for Word/Excel/PowerPoint files.
+        "ms_office": tokio::task::spawn_blocking(|| {
+            crate::services::msoffice::installed().iter().map(|a| a.name()).collect::<Vec<_>>()
+        }).await.unwrap_or_default(),
         "print_backend": Backend::detect(&st.config.data_dir).label(),
         "data_dir": st.config.data_dir.display().to_string(),
         "storage_dir": storage::storage_root(&st.config.data_dir).display().to_string(),

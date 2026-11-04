@@ -2,6 +2,80 @@ use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 
 use crate::error::{AppResult, bad};
+use crate::services::convert::FileGroup;
+
+/// What customers may do with one group of files.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct TypeRule {
+    /// "Submit for print": send it to the counter for staff to print.
+    pub submit: bool,
+    /// "Print by yourself" on a shop printer.
+    pub self_print: bool,
+}
+
+impl Default for TypeRule {
+    fn default() -> Self {
+        Self {
+            submit: true,
+            self_print: true,
+        }
+    }
+}
+
+/// Per-group rules. Missing groups (older saves) default to fully allowed.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct FileTypes {
+    pub pdf: TypeRule,
+    pub images: TypeRule,
+    pub word: TypeRule,
+    pub excel: TypeRule,
+    pub powerpoint: TypeRule,
+    pub other: TypeRule,
+}
+
+impl Default for FileTypes {
+    fn default() -> Self {
+        let on = TypeRule::default();
+        Self {
+            pdf: on,
+            images: on,
+            word: on,
+            excel: on,
+            powerpoint: on,
+            // These are never printed automatically, so self-print can't apply.
+            other: TypeRule {
+                submit: true,
+                self_print: false,
+            },
+        }
+    }
+}
+
+impl FileTypes {
+    pub fn rule(&self, group: FileGroup) -> TypeRule {
+        match group {
+            FileGroup::Pdf => self.pdf,
+            FileGroup::Images => self.images,
+            FileGroup::Word => self.word,
+            FileGroup::Excel => self.excel,
+            FileGroup::Powerpoint => self.powerpoint,
+            FileGroup::Other => TypeRule {
+                self_print: false,
+                ..self.other
+            },
+        }
+    }
+
+    /// Customers may upload it if they can do anything with it.
+    pub fn can_upload(&self, ext: &str) -> bool {
+        FileGroup::of(ext).is_some_and(|g| {
+            let r = self.rule(g);
+            r.submit || r.self_print
+        })
+    }
+}
 
 /// Shop-wide settings, stored as key/value rows so new settings never need a migration.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -16,6 +90,7 @@ pub struct Settings {
     pub price_bw_duplex: f64,
     pub price_color_single: f64,
     pub price_color_duplex: f64,
+    pub file_types: FileTypes,
 }
 
 impl Default for Settings {
@@ -30,6 +105,7 @@ impl Default for Settings {
             price_bw_duplex: 3.0,
             price_color_single: 10.0,
             price_color_duplex: 18.0,
+            file_types: FileTypes::default(),
         }
     }
 }
@@ -65,6 +141,15 @@ impl Settings {
         }
         if !(1..=100).contains(&self.max_files_per_job) {
             return Err(bad("Max files per job must be 1–100"));
+        }
+        let any = FileGroup::ALL.iter().any(|g| {
+            let r = self.file_types.rule(*g);
+            r.submit || r.self_print
+        });
+        if !any {
+            return Err(bad(
+                "Allow at least one file type, or customers can't send anything",
+            ));
         }
         let prices = [
             self.price_bw_single,

@@ -10,6 +10,7 @@ interface SystemInfo {
   portal_urls: string[];
   port: number;
   libreoffice: boolean;
+  ms_office?: string[];
   print_backend: "sumatra" | "mock" | "missing";
   storage_dir: string;
 }
@@ -103,9 +104,9 @@ export default function QrPoster() {
                 {sys.print_backend === "sumatra" ? <Badge tone="green">Ready</Badge> : sys.print_backend === "mock" ? <Badge tone="amber">Test mode</Badge> : <Badge tone="red">Missing. Reinstall</Badge>}
               </Stat>
               <Stat label="Office files">
-                {sys.libreoffice ? <Badge tone="green">Ready</Badge> : (
+                {sys.ms_office?.length ? <Badge tone="green">Microsoft {sys.ms_office.join(", ")}</Badge> : sys.libreoffice ? <Badge tone="green">LibreOffice</Badge> : (
                   <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <Badge tone="amber">LibreOffice missing</Badge>
+                    <Badge tone="amber">No Office app</Badge>
                     <a className="inline-flex items-center gap-1 text-xs text-gold underline-offset-2 hover:underline" href="https://www.libreoffice.org/download/download-libreoffice/" target="_blank" rel="noreferrer">
                       <Download aria-hidden className="h-3.5 w-3.5" /> Download
                     </a>

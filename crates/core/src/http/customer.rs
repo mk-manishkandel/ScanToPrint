@@ -194,9 +194,10 @@ async fn upload(
             .collect();
         let safe = storage::sanitize_filename(&display_name);
         let ext = storage::extension(&safe);
-        if !convert::is_allowed(&ext) {
+        if !settings.file_types.can_upload(&ext) {
             return Err(bad(format!(
-                "\"{display_name}\" can't be printed. Send PDF, photos, Word, Excel or PowerPoint files."
+                "\"{display_name}\" can't be sent here. This shop accepts {}.",
+                accepted_list(&settings)
             )));
         }
         let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM job_files WHERE job_id = ?")
@@ -359,6 +360,7 @@ async fn submit(
 ) -> AppResult<Json<JobDetail>> {
     authorize(&st, id, &headers, &q).await?;
     ensure_has_files(&st, id).await?;
+    check_mode(&st, id, Mode::Submit).await?;
     // Validate the wishes first; files that couldn't be converted are left for staff.
     let plan = if req.items.is_empty() {
         None
@@ -489,6 +491,7 @@ async fn quote(
     Json(req): Json<PrintReq>,
 ) -> AppResult<Json<models::PrintPlan>> {
     authorize(&st, id, &headers, &q).await?;
+    check_mode(&st, id, Mode::SelfPrint).await?;
     Ok(Json(models::plan_print(&st.db, id, &req, true).await?))
 }
 
@@ -517,6 +520,7 @@ async fn self_print(
     if job.status != "uploaded" {
         return Err(already_sent());
     }
+    check_mode(&st, id, Mode::SelfPrint).await?;
     let plan = models::plan_print(&st.db, id, &req, true).await?;
     let outcome = payment::provider().charge(id, plan.total_price);
     if outcome == payment::PaymentOutcome::Pending {
@@ -534,4 +538,68 @@ async fn self_print(
         new: true,
     });
     Ok(Json(models::job_detail(&st.db, id).await?))
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Mode {
+    Submit,
+    SelfPrint,
+}
+
+/// The owner decides per file type what customers may do (Settings → File types).
+/// Every file in the job must allow the chosen way of printing.
+async fn check_mode(st: &AppState, id: i64, mode: Mode) -> AppResult<()> {
+    let types = Settings::load(&st.db).await?.file_types;
+    let names: Vec<String> =
+        sqlx::query_scalar("SELECT original_name FROM job_files WHERE job_id = ? ORDER BY id")
+            .bind(id)
+            .fetch_all(&st.db)
+            .await?;
+    for name in names {
+        let ext = storage::extension(&name);
+        let allowed = convert::FileGroup::of(&ext).is_some_and(|g| {
+            let r = types.rule(g);
+            if mode == Mode::Submit {
+                r.submit
+            } else {
+                r.self_print
+            }
+        });
+        if !allowed {
+            return Err(bad(if mode == Mode::Submit {
+                format!(
+                    "\"{name}\" can't be sent to the counter here. Remove it or print it yourself."
+                )
+            } else {
+                format!(
+                    "\"{name}\" can't be printed by yourself here. Remove it or send it to the counter."
+                )
+            }));
+        }
+    }
+    Ok(())
+}
+
+/// "PDF, photos and Word files", built from what the owner allows.
+fn accepted_list(s: &Settings) -> String {
+    let names: Vec<&str> = convert::FileGroup::ALL
+        .iter()
+        .filter(|g| {
+            let r = s.file_types.rule(**g);
+            r.submit || r.self_print
+        })
+        .map(|g| match g {
+            convert::FileGroup::Pdf => "PDF",
+            convert::FileGroup::Images => "photos",
+            convert::FileGroup::Word => "Word",
+            convert::FileGroup::Excel => "Excel",
+            convert::FileGroup::Powerpoint => "PowerPoint",
+            convert::FileGroup::Other => "other",
+        })
+        .collect();
+    match names.as_slice() {
+        [] => "no files right now".into(),
+        [one] => format!("{one} files"),
+        [rest @ .., last] => format!("{} and {last} files", rest.join(", ")),
+    }
 }

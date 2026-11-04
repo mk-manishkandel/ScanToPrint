@@ -934,3 +934,95 @@ async fn update_check_needs_login_and_the_desktop_app() {
     let r = call(&app, "POST", "/api/admin/update/check", None, Some(&owner)).await;
     assert_eq!(r.status, StatusCode::BAD_REQUEST);
 }
+
+#[tokio::test]
+async fn owner_chooses_which_file_types_customers_can_send_and_self_print() {
+    let (app, dir) = test_app().await;
+    let owner = setup_owner(&app).await;
+    let mut s = call(&app, "GET", "/api/admin/settings", None, Some(&owner))
+        .await
+        .json;
+    assert_eq!(s["file_types"]["word"]["submit"], true, "all on by default");
+    // Word files: not at all. Photos: counter only.
+    s["file_types"]["word"] = json!({"submit": false, "self_print": false});
+    s["file_types"]["images"] = json!({"submit": true, "self_print": false});
+    let r = call(
+        &app,
+        "PUT",
+        "/api/admin/settings",
+        Some(s.clone()),
+        Some(&owner),
+    )
+    .await;
+    assert_eq!(r.status, StatusCode::OK, "{:?}", r.json);
+
+    // The customer page learns the rules.
+    let shop = call(&app, "GET", "/api/shop", None, None).await.json;
+    let groups = shop["file_types"].as_array().unwrap();
+    let word = groups.iter().find(|g| g["group"] == "word").unwrap();
+    assert_eq!(word["submit"], false);
+    assert!(
+        word["extensions"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("docx"))
+    );
+
+    let (id, token, _) = new_job(&app).await;
+    let r = upload(&app, id, &token, &[("letter.docx", b"PK".to_vec())]).await;
+    assert_eq!(r.status, StatusCode::BAD_REQUEST);
+    assert!(
+        r.json["error"]
+            .as_str()
+            .unwrap()
+            .contains("can't be sent here"),
+        "{:?}",
+        r.json
+    );
+
+    sample_pdf(dir.path(), "a");
+    let png = std::fs::read(dir.path().join("a.png")).unwrap();
+    let r = upload(&app, id, &token, &[("photo.png", png)]).await;
+    assert_eq!(r.status, StatusCode::OK, "{:?}", r.json);
+    let job = wait_converted(&app, id, &token).await;
+    let fid = job["files"][0]["id"].as_i64().unwrap();
+
+    // Photos can't be self-printed here...
+    let body = json!({"printer_id": 1, "items":[{"file_id": fid, "page_range":"", "copies":1}]});
+    for path in ["quote", "self-print"] {
+        let r = call(
+            &app,
+            "POST",
+            &format!("/api/jobs/{id}/{path}?t={token}"),
+            Some(body.clone()),
+            None,
+        )
+        .await;
+        assert_eq!(r.status, StatusCode::BAD_REQUEST, "{path}");
+        assert!(
+            r.json["error"]
+                .as_str()
+                .unwrap()
+                .contains("printed by yourself"),
+            "{:?}",
+            r.json
+        );
+    }
+    // ...but can go to the counter.
+    let r = call(
+        &app,
+        "POST",
+        &format!("/api/jobs/{id}/submit?t={token}"),
+        Some(json!({})),
+        None,
+    )
+    .await;
+    assert_eq!(r.json["status"], "submitted", "{:?}", r.json);
+
+    // Switching everything off is refused.
+    for g in ["pdf", "images", "word", "excel", "powerpoint", "other"] {
+        s["file_types"][g] = json!({"submit": false, "self_print": false});
+    }
+    let r = call(&app, "PUT", "/api/admin/settings", Some(s), Some(&owner)).await;
+    assert_eq!(r.status, StatusCode::BAD_REQUEST);
+}

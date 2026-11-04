@@ -57,7 +57,7 @@ ScanToPrint puts a **QR code on the counter** instead. Customers scan it, upload
  Customer's phone ──(shop Wi-Fi)──►  Shop Windows PC running ScanToPrint
                                       ├─ Web server (customer page + staff dashboard) :8080
                                       ├─ SQLite database + file storage (C:\ProgramData\ScanToPrint)
-                                      ├─ Converts Office files/images → PDF (LibreOffice, built-in)
+                                      ├─ Converts Office files/images → PDF (Microsoft Office or LibreOffice, built-in)
                                       └─ Prints silently to Windows printers (bundled SumatraPDF)
 ```
 
@@ -71,7 +71,7 @@ Everything runs on the shop's own PC. No cloud account, no subscription, and cus
 2. Run it. If Windows shows **"Windows protected your PC"**, click **More info → Run anyway**. The installer isn't code-signed yet; this is expected.
 3. Open ScanToPrint and follow the setup: shop name and owner password.
 4. Go to **Printers → Scan for printers**, then turn on your printers.
-5. For Word/Excel/PowerPoint files, install the free [LibreOffice](https://www.libreoffice.org/download/). PDFs and photos work without it.
+5. For Word/Excel/PowerPoint files the app uses **Microsoft Office** if it's installed on the PC. If not, install the free [LibreOffice](https://www.libreoffice.org/download/). PDFs and photos work without either. Choose which file types customers may send or print themselves in **Settings → File types**.
 6. In your Wi-Fi router, **reserve a fixed IP address** for this PC, so the QR code keeps working.
 7. In Windows, set the shop Wi-Fi network to **Private**.
 8. Open **QR poster**, print it, and put it at the counter.
@@ -85,7 +85,7 @@ Everything runs on the shop's own PC. No cloud account, no subscription, and cus
 | Problem | Fix |
 |---|---|
 | Customers can't open the page | Their phone must be on the shop Wi-Fi. Check the Wi-Fi is set to **Private** in Windows. Make sure the PC's IP matches the QR poster (reserve it on the router). |
-| Word/Excel files say "can't convert" | Install LibreOffice, then click **Retry convert** on the job. |
+| Word/Excel files say "can't convert" | Install Microsoft Office or LibreOffice, then click **Retry convert** on the job. |
 | A print failed | Check the printer is on and has paper, then use **Print…** on the job again. |
 | Tray tooltip says "NOT RUNNING" | Another program is using port 8080. Close it and restart ScanToPrint. |
 | Anything else | Logs are in `C:\ProgramData\ScanToPrint\logs`. [Open an issue](https://github.com/mk-manishkandel/ScanToPrint/issues/new/choose) and attach them. |
@@ -100,7 +100,7 @@ Everything runs on the shop's own PC. No cloud account, no subscription, and cus
 | Server, API, conversion, printing | Rust: Axum, tokio, SQLite via sqlx (`crates/core/`) |
 | Customer page and dashboard | React, Vite, Tailwind CSS (`web/`), embedded into the binary |
 | Printing | [SumatraPDF](https://www.sumatrapdfreader.org) (bundled, pinned and checksum-verified) |
-| Office → PDF | LibreOffice headless (installed separately) |
+| Office → PDF | Microsoft Office via COM when installed, else LibreOffice headless (both installed separately) |
 
 ```bash
 npm ci

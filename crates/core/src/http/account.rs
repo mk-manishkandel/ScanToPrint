@@ -52,6 +52,11 @@ async fn shop_info(State(st): State<AppState>) -> AppResult<Json<Value>> {
         "currency": s.currency,
         "max_file_mb": s.max_file_mb,
         "max_files_per_job": s.max_files_per_job,
+        // What customers may send and how, per file group (Settings → File types).
+        "file_types": crate::services::convert::FileGroup::ALL.iter().map(|g| {
+            let r = s.file_types.rule(*g);
+            json!({ "group": g, "submit": r.submit, "self_print": r.self_print, "extensions": g.extensions() })
+        }).collect::<Vec<_>>(),
         "version": crate::VERSION,
     })))
 }

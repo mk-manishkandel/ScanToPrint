@@ -1,6 +1,7 @@
 pub mod cleanup;
 pub mod convert;
 pub mod jobs_util;
+pub mod msoffice;
 pub mod network;
 pub mod pages;
 pub mod payment;

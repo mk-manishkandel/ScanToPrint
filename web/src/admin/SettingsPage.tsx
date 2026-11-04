@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { VersionInfo } from "./UpdateBanner";
-import { CheckCircle2, Coins, Save, Settings as SettingsIcon, Store, type LucideIcon } from "lucide-react";
-import { api, type Settings } from "../api";
+import { CheckCircle2, Coins, FileStack, Save, Settings as SettingsIcon, Store, type LucideIcon } from "lucide-react";
+import { api, FILE_GROUP_LABEL, type FileGroup, type Settings, type TypeRule } from "../api";
 import { Button, Card, ErrorText, Field, Input, PageHeader, Spinner } from "../components/ui";
 
 export default function SettingsPage() {
@@ -111,6 +111,44 @@ export default function SettingsPage() {
         <p className="mt-3 text-sm text-steel">Customers see these prices before they print by themselves. Both-sides prices are for one sheet with print on each side.</p>
       </Card>
 
+      {/* Row 3: which files customers may send, and how they may print them. */}
+      <Card as="section">
+        <SectionTitle icon={FileStack} title="File types" hint="Word, Excel and PowerPoint files are converted with Microsoft Office when it's installed on this PC, otherwise LibreOffice." />
+        <div role="table" aria-label="Allowed file types" className="mt-5 overflow-hidden rounded-xl ring-1 ring-line">
+          <div role="row" className="grid grid-cols-[minmax(0,1fr)_5.5rem_5.5rem] items-center gap-x-4 bg-midnight px-4 py-3 text-xs font-medium uppercase tracking-wider text-steel sm:grid-cols-[minmax(0,1fr)_10rem_10rem]">
+            <span role="columnheader">File type</span>
+            <span role="columnheader" className="text-center">Send to counter</span>
+            <span role="columnheader" className="text-center">Print by yourself</span>
+          </div>
+          {GROUPS.map(({ group, examples }) => {
+            const rule = s.file_types[group];
+            const set = (patch: Partial<TypeRule>) => {
+              setSaved(false);
+              setS({ ...s, file_types: { ...s.file_types, [group]: { ...rule, ...patch } } });
+            };
+            return (
+              <div key={group} role="row" className="grid grid-cols-[minmax(0,1fr)_5.5rem_5.5rem] items-center gap-x-4 border-t border-line px-4 py-3 sm:grid-cols-[minmax(0,1fr)_10rem_10rem]">
+                <span role="rowheader" className="min-w-0">
+                  <span className="block font-medium">{FILE_GROUP_LABEL[group]}</span>
+                  <span className="block truncate text-xs text-steel">{examples}</span>
+                </span>
+                <span role="cell" className="flex justify-center">
+                  <Toggle label={`${FILE_GROUP_LABEL[group]}: send to counter`} checked={rule.submit} onChange={(v) => set({ submit: v })} />
+                </span>
+                <span role="cell" className="flex justify-center">
+                  {group === "other" ? (
+                    <span className="text-xs text-steel">Not printable</span>
+                  ) : (
+                    <Toggle label={`${FILE_GROUP_LABEL[group]}: print by yourself`} checked={rule.self_print} onChange={(v) => set({ self_print: v })} />
+                  )}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+        <p className="mt-3 text-sm text-steel">Customers can only upload the types switched on here. A file type that's off in both columns is refused.</p>
+      </Card>
+
       <Card className="md:hidden">
         <h2 className="mb-2 font-semibold">App version</h2>
         <VersionInfo className="!text-sm" />
@@ -135,5 +173,32 @@ function Money({ currency, label, value, onChange }: { currency: string; label: 
       <span aria-hidden className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-sm text-steel">{currency}</span>
       <Input aria-label={label} type="number" inputMode="decimal" step="0.5" min={0} value={value} onChange={onChange} style={{ paddingLeft: `${Math.max(2.5, currency.length * 0.6 + 1.6)}rem` }} />
     </span>
+  );
+}
+
+const GROUPS: { group: FileGroup; examples: string }[] = [
+  { group: "pdf", examples: ".pdf" },
+  { group: "images", examples: ".jpg .png .webp .gif .bmp .tiff" },
+  { group: "word", examples: ".doc .docx .rtf .txt .odt" },
+  { group: "excel", examples: ".xls .xlsx .csv .ods" },
+  { group: "powerpoint", examples: ".ppt .pptx .pps .odp" },
+  { group: "other", examples: ".heic .psd .ai .cdr .zip: staff open these by hand" },
+];
+
+/** Compact on/off switch for table cells. */
+function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={() => onChange(!checked)}
+      className="grid h-11 w-14 cursor-pointer place-items-center rounded-xl transition hover:bg-navy-hover"
+    >
+      <span className={`relative inline-flex h-6 w-11 rounded-full transition ${checked ? "bg-gold" : "bg-line-strong"}`}>
+        <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-frost transition-[left] ${checked ? "left-[22px]" : "left-0.5"}`} />
+      </span>
+    </button>
   );
 }

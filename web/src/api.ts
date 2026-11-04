@@ -57,6 +57,27 @@ export interface Settings {
   price_bw_duplex: number;
   price_color_single: number;
   price_color_duplex: number;
+  file_types: Record<FileGroup, TypeRule>;
+}
+
+export type FileGroup = "pdf" | "images" | "word" | "excel" | "powerpoint" | "other";
+/** What customers may do with one group of files (Settings → File types). */
+export interface TypeRule { submit: boolean; self_print: boolean }
+export interface FileTypeInfo extends TypeRule { group: FileGroup; extensions: string[] }
+
+export const FILE_GROUP_LABEL: Record<FileGroup, string> = {
+  pdf: "PDF",
+  images: "Photos",
+  word: "Word",
+  excel: "Excel",
+  powerpoint: "PowerPoint",
+  other: "Other",
+};
+
+/** The rules for one file name, or null if the shop doesn't accept it at all. */
+export function ruleFor(types: FileTypeInfo[] | undefined, name: string): FileTypeInfo | null {
+  const ext = name.includes(".") ? name.split(".").pop()!.toLowerCase() : "";
+  return types?.find((t) => t.extensions.includes(ext)) ?? null;
 }
 
 export interface ShopInfo {
@@ -66,6 +87,7 @@ export interface ShopInfo {
   currency: string;
   max_file_mb: number;
   max_files_per_job: number;
+  file_types?: FileTypeInfo[];
   version: string;
 }
 

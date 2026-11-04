@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import {
   api, describeRequest, formatBytes, liveEvents, STATUS_LABEL, STATUS_TONE,
-  type Job, type JobFile, type PrintPlan, type PrinterOption, type ShopInfo,
+  FILE_GROUP_LABEL, ruleFor, type FileTypeInfo, type Job, type JobFile, type PrintPlan, type PrinterOption, type ShopInfo,
 } from "../api";
 import { PrintOptions, type PrintBody, type PrintState } from "../components/PrintOptions";
 import {
@@ -32,8 +32,33 @@ function save(v: Saved | null) {
   }
 }
 
-const ACCEPT =
+const ACCEPT_ALL =
   ".pdf,.jpg,.jpeg,.png,.webp,.bmp,.gif,.tif,.tiff,.heic,.heif,.doc,.docx,.odt,.rtf,.txt,.csv,.xls,.xlsx,.ods,.ppt,.pptx,.odp,.pps,.ppsx,image/*,application/pdf";
+
+/** Only offer the file types the shop accepts (Settings → File types). */
+function acceptFor(types: FileTypeInfo[] | undefined) {
+  if (!types) return ACCEPT_ALL;
+  const on = types.filter((t) => t.submit || t.self_print);
+  const exts = on.flatMap((t) => t.extensions.map((e) => "." + e));
+  if (on.some((t) => t.group === "images")) exts.push("image/*");
+  if (on.some((t) => t.group === "pdf")) exts.push("application/pdf");
+  return exts.join(",");
+}
+
+/** "PDF, photos and Word" for the upload hint. */
+function acceptedText(types: FileTypeInfo[] | undefined) {
+  if (!types) return "PDF, photos, Word, Excel, PowerPoint";
+  const names = types.filter((t) => (t.submit || t.self_print) && t.group !== "other").map((t) => (t.group === "images" ? "photos" : FILE_GROUP_LABEL[t.group]));
+  return names.join(", ");
+}
+
+/** Why a way of printing isn't available for these files, or null if it is. */
+function blockedReason(types: FileTypeInfo[] | undefined, files: { original_name: string }[], mode: "submit" | "self_print") {
+  if (!types) return null;
+  const bad = files.find((f) => !ruleFor(types, f.original_name)?.[mode]);
+  if (!bad) return null;
+  return `Not available for "${bad.original_name}". Remove it to use this.`;
+}
 
 export default function CustomerApp() {
   const [shop, setShop] = useState<ShopInfo | null>(null);
@@ -182,6 +207,9 @@ function UploadStep({
   const files = job?.files ?? [];
   const converting = files.some((f) => f.conversion_status === "pending");
   const printable = files.filter((f) => f.conversion_status === "ok");
+  const types = shop?.file_types;
+  const submitBlocked = blockedReason(types, files, "submit");
+  const selfBlocked = blockedReason(types, files, "self_print");
   const uploading = progress !== null;
 
   return (
@@ -201,7 +229,7 @@ function UploadStep({
         </Card>
       )}
 
-      <input ref={fileInput} type="file" multiple accept={ACCEPT} className="sr-only" tabIndex={-1} aria-hidden onChange={(e) => onFiles(e.target.files)} />
+      <input ref={fileInput} type="file" multiple accept={acceptFor(shop?.file_types)} className="sr-only" tabIndex={-1} aria-hidden onChange={(e) => onFiles(e.target.files)} />
       <input ref={cameraInput} type="file" accept="image/*" capture="environment" className="sr-only" tabIndex={-1} aria-hidden onChange={(e) => onFiles(e.target.files)} />
 
       <div className="animate-rise [animation-delay:60ms]">
@@ -215,11 +243,13 @@ function UploadStep({
             {files.length ? <Plus aria-hidden className="h-7 w-7" /> : <FileUp aria-hidden className="h-7 w-7" />}
           </span>
           <span className="mt-3 text-lg font-semibold">{files.length ? "Add more files" : "Choose files to print"}</span>
-          <span className="mt-1 text-xs text-steel">PDF, photos, Word, Excel, PowerPoint · up to {shop?.max_file_mb ?? 50} MB each</span>
+          <span className="mt-1 text-xs text-steel">{acceptedText(shop?.file_types)} · up to {shop?.max_file_mb ?? 50} MB each</span>
         </button>
-        <Button variant="ghost" icon={Camera} className="mt-2 w-full" disabled={uploading} onClick={() => cameraInput.current?.click()}>
-          Take a photo of a document
-        </Button>
+        {(!shop?.file_types || shop.file_types.some((t) => t.group === "images" && (t.submit || t.self_print))) && (
+          <Button variant="ghost" icon={Camera} className="mt-2 w-full" disabled={uploading} onClick={() => cameraInput.current?.click()}>
+            Take a photo of a document
+          </Button>
+        )}
       </div>
 
       {uploading && (
@@ -271,21 +301,25 @@ function UploadStep({
       {files.length > 0 && (
         <section className="space-y-3 animate-rise [animation-delay:80ms]" aria-label="How do you want to print?">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-steel">How do you want to print?</h2>
-          <ChoiceCard
-            icon={Store}
-            title="Send to the counter"
-            text="Staff print it for you. Choose colour, copies and more."
-            onClick={() => setMode("submit")}
-            disabled={converting}
-            primary
-          />
-          <ChoiceCard
-            icon={Printer}
-            title="Print it myself"
-            text="Pick a printer and print right now."
-            onClick={() => setMode("self")}
-            disabled={converting || !printable.length}
-          />
+          {(!types || types.some((t) => t.submit)) && (
+            <ChoiceCard
+              icon={Store}
+              title="Send to the counter"
+              text={submitBlocked ?? "Staff print it for you. Choose colour, copies and more."}
+              onClick={() => setMode("submit")}
+              disabled={converting || !!submitBlocked}
+              primary
+            />
+          )}
+          {(!types || types.some((t) => t.self_print)) && (
+            <ChoiceCard
+              icon={Printer}
+              title="Print it myself"
+              text={selfBlocked ?? "Pick a printer and print right now."}
+              onClick={() => setMode("self")}
+              disabled={converting || !printable.length || !!selfBlocked}
+            />
+          )}
           {converting && (
             <p className="flex items-center justify-center gap-2 text-xs text-steel" aria-live="polite">
               <Spinner className="h-3.5 w-3.5" label="Preparing" /> Preparing your files…

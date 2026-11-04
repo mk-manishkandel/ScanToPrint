@@ -1,5 +1,5 @@
 //! Background conversion of uploaded files to PDF + page counting.
-//! Runs one file at a time (LibreOffice is not safe to run concurrently).
+//! Runs one file at a time (Office and LibreOffice are not safe to run concurrently).
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -8,7 +8,7 @@ use anyhow::Context;
 use tokio::sync::mpsc;
 
 use crate::events::Event;
-use crate::services::{pdf, storage};
+use crate::services::{msoffice, pdf, storage};
 use crate::state::AppState;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -42,6 +42,72 @@ pub fn kind(ext: &str) -> Kind {
 
 pub fn is_allowed(ext: &str) -> bool {
     kind(ext) != Kind::Unsupported || OTHER_EXT.contains(&ext)
+}
+
+/// The groups the owner can switch on or off in Settings → File types.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum FileGroup {
+    Pdf,
+    Images,
+    Word,
+    Excel,
+    Powerpoint,
+    /// Accepted for staff to open by hand; never printed automatically.
+    Other,
+}
+
+pub const WORD_EXT: &[&str] = &["doc", "docx", "odt", "rtf", "txt", "wpd", "pages"];
+pub const EXCEL_EXT: &[&str] = &["xls", "xlsx", "ods", "csv", "numbers"];
+pub const POWERPOINT_EXT: &[&str] = &["ppt", "pptx", "odp", "pps", "ppsx", "key"];
+
+impl FileGroup {
+    pub const ALL: [FileGroup; 6] = [
+        FileGroup::Pdf,
+        FileGroup::Images,
+        FileGroup::Word,
+        FileGroup::Excel,
+        FileGroup::Powerpoint,
+        FileGroup::Other,
+    ];
+
+    /// Which group a (lower-case) extension belongs to; None = never accepted.
+    pub fn of(ext: &str) -> Option<FileGroup> {
+        if PDF_EXT.contains(&ext) {
+            Some(FileGroup::Pdf)
+        } else if IMAGE_EXT.contains(&ext) {
+            Some(FileGroup::Images)
+        } else if WORD_EXT.contains(&ext) {
+            Some(FileGroup::Word)
+        } else if EXCEL_EXT.contains(&ext) {
+            Some(FileGroup::Excel)
+        } else if POWERPOINT_EXT.contains(&ext) {
+            Some(FileGroup::Powerpoint)
+        } else if is_allowed(ext) {
+            Some(FileGroup::Other)
+        } else {
+            None
+        }
+    }
+
+    /// Every extension in this group (for the upload picker's `accept` list).
+    pub fn extensions(self) -> Vec<&'static str> {
+        match self {
+            FileGroup::Pdf => PDF_EXT.to_vec(),
+            FileGroup::Images => IMAGE_EXT.to_vec(),
+            FileGroup::Word => WORD_EXT.to_vec(),
+            FileGroup::Excel => EXCEL_EXT.to_vec(),
+            FileGroup::Powerpoint => POWERPOINT_EXT.to_vec(),
+            FileGroup::Other => OFFICE_EXT
+                .iter()
+                .chain(OTHER_EXT)
+                .copied()
+                .filter(|e| {
+                    !WORD_EXT.contains(e) && !EXCEL_EXT.contains(e) && !POWERPOINT_EXT.contains(e)
+                })
+                .collect(),
+        }
+    }
 }
 
 const OFFICE_TIMEOUT: Duration = Duration::from_secs(120);
@@ -167,8 +233,8 @@ async fn mark_failed(st: &AppState, file_id: i64, msg: &str) -> anyhow::Result<(
 
 fn friendly_error(e: &anyhow::Error) -> String {
     let msg = format!("{e:#}");
-    if msg.contains("LibreOffice is not installed") {
-        "The shop computer can't convert this file type yet (LibreOffice missing). The shop can still open it.".into()
+    if msg.contains("No Office app is installed") {
+        "The shop computer can't convert this file type yet (no Microsoft Office or LibreOffice). The shop can still open it.".into()
     } else if msg.contains("timed out") {
         "Converting this file took too long. Try saving it as PDF.".into()
     } else {
@@ -220,8 +286,31 @@ async fn convert_one(
     }
 }
 
+/// Word/Excel/PowerPoint → PDF. Uses Microsoft Office when it's installed on this PC
+/// (best fidelity), otherwise or if that fails, LibreOffice.
 async fn office_to_pdf(data_dir: &Path, src: &Path, dest: &Path) -> anyhow::Result<()> {
-    let soffice = find_soffice().context("LibreOffice is not installed")?;
+    let ext = src
+        .extension()
+        .map(|e| e.to_string_lossy().to_ascii_lowercase())
+        .unwrap_or_default();
+    let ms_app = msoffice::App::for_ext(&ext).filter(|a| msoffice::is_installed(*a));
+    if let Some(app) = ms_app {
+        let work = tempdir_in(data_dir)?;
+        let result = msoffice::to_pdf(app, src, dest, &work, OFFICE_TIMEOUT).await;
+        let _ = std::fs::remove_dir_all(&work);
+        match result {
+            Ok(()) => return Ok(()),
+            Err(e) if find_soffice().is_some() => {
+                tracing::warn!("Microsoft {} failed, trying LibreOffice: {e:#}", app.name());
+            }
+            Err(e) => return Err(e),
+        }
+    }
+    libreoffice_to_pdf(data_dir, src, dest).await
+}
+
+async fn libreoffice_to_pdf(data_dir: &Path, src: &Path, dest: &Path) -> anyhow::Result<()> {
+    let soffice = find_soffice().context("No Office app is installed")?;
     let out_dir = tempdir_in(data_dir)?;
     let profile = data_dir.join("lo-profile");
     let profile_url = format!(
@@ -329,6 +418,25 @@ mod tests {
         assert_eq!(kind("docx"), Kind::Office);
         assert_eq!(kind("exe"), Kind::Unsupported);
         assert!(is_allowed("heic"));
+        assert_eq!(FileGroup::of("docx"), Some(FileGroup::Word));
+        assert_eq!(FileGroup::of("csv"), Some(FileGroup::Excel));
+        assert_eq!(FileGroup::of("pptx"), Some(FileGroup::Powerpoint));
+        assert_eq!(FileGroup::of("heic"), Some(FileGroup::Other));
+        assert_eq!(FileGroup::of("xps"), Some(FileGroup::Other));
+        assert_eq!(FileGroup::of("exe"), None);
+        // Every accepted extension is in exactly one group.
+        for ext in PDF_EXT
+            .iter()
+            .chain(IMAGE_EXT)
+            .chain(OFFICE_EXT)
+            .chain(OTHER_EXT)
+        {
+            let n = FileGroup::ALL
+                .iter()
+                .filter(|g| g.extensions().contains(ext))
+                .count();
+            assert_eq!(n, 1, "{ext}");
+        }
         assert!(!is_allowed("exe"));
         assert!(!is_allowed("bat"));
         assert!(
