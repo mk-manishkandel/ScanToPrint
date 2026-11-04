@@ -72,13 +72,15 @@ The UI uses one dark palette, defined as Tailwind tokens in `web/src/index.css`.
 | `steel` | `#8A94A8` | Secondary text, labels, captions |
 | `gold` | `#D4AF6A` | Accent: primary buttons, links, highlights, logo |
 | `gold-soft` | `#E6CC97` | Gold on hover |
-| `cobalt` | `#365496` | Soft background glows only, never text |
+| `cobalt` | `#365496` | "Info" badge fill only, never text |
 | `danger` | `#E0796B` | Errors and invalid fields |
 | `navy-hover` | `#1C2C4B` | Hover colour for navy cards |
 | `line` / `line-strong` | frost at 12% / 24% | Dividers and borders |
 
 - Text on a gold background is `text-midnight`, never white.
-- For gold glows, rings and borders, use gold at 4–40% opacity (`ring-gold/25`). Avoid gold-tinted *fills* on navy, because they look muddy; use `bg-midnight/60` with a gold ring instead.
+- **No glow effects:** no coloured shadows, blurred light spots, pulsing rings or gradient backgrounds. Use flat fills and one thin border/ring.
+- For gold rings and borders, use gold at 25–50% opacity (`ring-gold/25`). Avoid gold-tinted *fills* on navy, because they look muddy; use `bg-midnight/60` with a gold ring instead.
+- **One stroke per element.** Text fields show focus by turning their own border gold; don't add a ring or outline on top.
 - The printed QR poster must stay black on white (`print:` classes), so it doesn't waste toner.
 - **Type:** DM Sans, bundled via `@fontsource-variable/dm-sans`. Don't load fonts from the internet; shops may be offline, and the CSP blocks it. Use `tabular-nums` for job codes, prices and counts.
 - **Icons:** `lucide-react` only. No emoji as icons. Decorative icons get `aria-hidden`, and icon-only buttons use `IconButton`, which requires a `label`.

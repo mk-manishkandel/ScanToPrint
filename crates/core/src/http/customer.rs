@@ -32,6 +32,7 @@ pub fn routes() -> Router<AppState> {
         .route("/api/jobs/{id}/files/{fid}", delete(delete_file))
         .route("/api/jobs/{id}/files/{fid}/pdf", get(file_pdf))
         .route("/api/jobs/{id}/submit", post(submit))
+        .route("/api/jobs/{id}/cancel", post(cancel))
         .route("/api/printers/available", get(available_printers))
         .route("/api/jobs/{id}/quote", post(quote))
         .route("/api/jobs/{id}/estimate", post(estimate))
@@ -392,6 +393,50 @@ async fn submit(
         job_id: id,
         status: "submitted".into(),
         new: true,
+    });
+    Ok(Json(models::job_detail(&st.db, id).await?))
+}
+
+/// The customer withdraws their job. Only allowed while nothing has started printing:
+/// before sending, while it waits for staff, or while a self-print waits in the queue.
+async fn cancel(
+    State(st): State<AppState>,
+    Path(id): Path<i64>,
+    headers: HeaderMap,
+    Query(q): Query<TokenQuery>,
+) -> AppResult<Json<JobDetail>> {
+    authorize(&st, id, &headers, &q).await?;
+    let mut tx = st.db.begin().await?;
+    // Conditional: if staff or the printer got there first, nothing changes.
+    let res = sqlx::query(
+        "UPDATE jobs SET status = 'cancelled', updated_at = ?
+         WHERE id = ? AND status IN ('uploaded', 'submitted', 'queued')
+           AND NOT EXISTS (SELECT 1 FROM print_runs
+                           WHERE job_id = jobs.id AND status IN ('printing', 'done'))",
+    )
+    .bind(crate::db::now())
+    .bind(id)
+    .execute(&mut *tx)
+    .await?;
+    if res.rows_affected() == 0 {
+        return Err(AppError::Conflict(
+            "This job has already started printing, so it can't be cancelled here. Please ask at the counter.".into(),
+        ));
+    }
+    // Queued runs are skipped by the print worker once they're no longer 'queued'.
+    sqlx::query(
+        "UPDATE print_runs SET status = 'failed', error = 'Cancelled by customer', updated_at = ?
+         WHERE job_id = ? AND status = 'queued'",
+    )
+    .bind(crate::db::now())
+    .bind(id)
+    .execute(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    st.emit(Event::JobUpdated {
+        job_id: id,
+        status: "cancelled".into(),
+        new: false,
     });
     Ok(Json(models::job_detail(&st.db, id).await?))
 }

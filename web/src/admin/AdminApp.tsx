@@ -114,7 +114,6 @@ function Shell() {
             >
               {({ isActive }) => (
                 <>
-                  <span aria-hidden className={`absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full bg-gold transition-opacity ${isActive ? "opacity-100" : "opacity-0"}`} />
                   <l.icon aria-hidden className={`h-[18px] w-[18px] ${isActive ? "text-gold" : "text-steel group-hover:text-frost/80"}`} />
                   {l.label}
                 </>

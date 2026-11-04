@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { FileStack, History as HistoryIcon, Printer, Search, Store } from "lucide-react";
+import { FileStack, Files, Inbox, History as HistoryIcon, Printer, Search, Store, Wallet, X, type LucideIcon } from "lucide-react";
 import { api, STATUS_LABEL, STATUS_TONE, type Job } from "../api";
-import { Badge, Card, EmptyState, ErrorText, Input, PageHeader, Spinner } from "../components/ui";
+import { Badge, Button, EmptyState, ErrorText, Input, PageHeader, Spinner } from "../components/ui";
 
 export default function History() {
   const [jobs, setJobs] = useState<Job[] | null>(null);
@@ -23,87 +23,142 @@ export default function History() {
   const pages = list.reduce((s, j) => s + j.total_pages, 0);
   const revenue = list.reduce((s, j) => s + (j.estimated_price || 0), 0);
 
+  const fmtDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+  const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  const money = (n: number) => (n ? n.toFixed(2) : "—");
+  const open = (id: number) => navigate(`/admin/jobs/${id}`);
+
   return (
     <div className="space-y-6">
       <PageHeader icon={HistoryIcon} title="History" description="Every job, newest first. Click a row to open it." />
-      <div className="flex flex-wrap items-end gap-3">
-        <label className="relative block w-full max-w-sm">
+
+      <div className="grid grid-cols-3 gap-3">
+        <Stat icon={Inbox} label="Jobs" value={jobs ? list.length : "–"} />
+        <Stat icon={Files} label="Pages" value={jobs ? pages : "–"} />
+        <Stat icon={Wallet} label="Value" value={jobs ? revenue.toFixed(2) : "–"} />
+      </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <label className="relative block flex-1">
           <span className="sr-only">Search</span>
           <Search aria-hidden className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-steel" />
           <Input className="!pl-10" placeholder="Search code, name or phone" value={q} onChange={(e) => setQ(e.target.value)} />
         </label>
-        <label className="block">
-          <span className="sr-only">Date</span>
-          <Input className="w-44" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-        </label>
-        <div className="ml-auto flex gap-2 text-sm">
-          <Stat label="Jobs" value={list.length} />
-          <Stat label="Pages" value={pages} />
-          <Stat label="Value" value={revenue.toFixed(2)} />
+        <div className="flex gap-2">
+          <label className="block flex-1 sm:w-48 sm:flex-none">
+            <span className="sr-only">Date</span>
+            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </label>
+          {(q || date) && (
+            <Button variant="ghost" icon={X} onClick={() => { setQ(""); setDate(""); }}>Clear</Button>
+          )}
         </div>
       </div>
+
       <ErrorText error={error} />
       {!jobs && !error && <div className="grid place-items-center py-16"><Spinner className="h-7 w-7" /></div>}
       {jobs && list.length === 0 && (
         <EmptyState icon={FileStack} title="No jobs found">{q || date ? "Try a different search or date." : "Jobs appear here once customers start uploading."}</EmptyState>
       )}
+
       {list.length > 0 && (
-        <Card className="overflow-x-auto !p-0 animate-fade-in">
-          <table className="w-full min-w-[760px] text-sm">
-            <thead className="text-left text-xs uppercase tracking-wider text-steel">
-              <tr className="border-b border-line">
-                <th className="px-5 py-3 font-medium">Code</th>
-                <th className="py-3 font-medium">Customer</th>
-                <th className="py-3 font-medium">When</th>
-                <th className="py-3 font-medium">Type</th>
-                <th className="py-3 text-right font-medium">Files</th>
-                <th className="py-3 text-right font-medium">Pages</th>
-                <th className="py-3 text-right font-medium">Amount</th>
-                <th className="px-5 py-3 font-medium">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.map((j) => (
-                <tr
-                  key={j.id}
-                  onClick={() => navigate(`/admin/jobs/${j.id}`)}
-                  className="cursor-pointer border-t border-line transition first:border-0 hover:bg-navy-hover"
-                >
-                  <td className="px-5 py-3">
-                    <Link to={`/admin/jobs/${j.id}`} className="font-bold tabular-nums text-gold hover:text-gold-soft" onClick={(e) => e.stopPropagation()}>
-                      {j.code}
-                    </Link>
-                  </td>
-                  <td className="py-3">
-                    {j.customer_name ?? <span className="text-steel">Walk-in</span>}
-                    {j.customer_phone && <div className="text-xs text-steel">{j.customer_phone}</div>}
-                  </td>
-                  <td className="py-3 text-frost/80">{new Date(j.created_at).toLocaleString()}</td>
-                  <td className="py-3">
-                    <span className="inline-flex items-center gap-1.5 text-frost/80">
-                      {j.mode === "self" ? <Printer aria-hidden className="h-3.5 w-3.5 text-steel" /> : <Store aria-hidden className="h-3.5 w-3.5 text-steel" />}
-                      {j.mode === "self" ? "Self" : "Counter"}
-                    </span>
-                  </td>
-                  <td className="py-3 text-right tabular-nums">{j.files.length}</td>
-                  <td className="py-3 text-right tabular-nums">{j.total_pages}</td>
-                  <td className="py-3 text-right tabular-nums">{j.estimated_price ? j.estimated_price.toFixed(2) : "—"}</td>
-                  <td className="px-5 py-3"><Badge tone={STATUS_TONE[j.status]}>{STATUS_LABEL[j.status]}</Badge></td>
+        <>
+          {/* Wide screens: a table. */}
+          <div className="hidden overflow-hidden rounded-2xl bg-ink/90 ring-1 ring-line animate-fade-in md:block">
+            <table className="w-full table-fixed text-sm">
+              <colgroup>
+                <col className="w-[13%]" />
+                <col className="w-[24%]" />
+                <col className="w-[17%]" />
+                <col className="w-[12%]" />
+                <col className="w-[8%]" />
+                <col className="w-[8%]" />
+                <col className="w-[18%]" />
+              </colgroup>
+              <thead className="bg-midnight/50 text-left text-xs uppercase tracking-wider text-steel">
+                <tr>
+                  <th scope="col" className="px-4 py-3 font-medium">Code</th>
+                  <th scope="col" className="px-4 py-3 font-medium">Customer</th>
+                  <th scope="col" className="px-4 py-3 font-medium">Date</th>
+                  <th scope="col" className="px-4 py-3 font-medium">Type</th>
+                  <th scope="col" className="px-4 py-3 text-right font-medium">Pages</th>
+                  <th scope="col" className="px-4 py-3 text-right font-medium">Amount</th>
+                  <th scope="col" className="px-4 py-3 font-medium">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </Card>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {list.map((j) => (
+                  <tr key={j.id} onClick={() => open(j.id)} className="cursor-pointer align-middle transition hover:bg-navy-hover">
+                    <td className="px-4 py-3">
+                      <Link to={`/admin/jobs/${j.id}`} className="font-bold tabular-nums text-gold hover:text-gold-soft" onClick={(e) => e.stopPropagation()}>
+                        {j.code}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="truncate font-medium">{j.customer_name ?? <span className="font-normal text-steel">Walk-in</span>}</div>
+                      {j.customer_phone && <div className="truncate text-xs tabular-nums text-steel">{j.customer_phone}</div>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="tabular-nums">{fmtDate(j.created_at)}</div>
+                      <div className="text-xs tabular-nums text-steel">{fmtTime(j.created_at)}</div>
+                    </td>
+                    <td className="px-4 py-3"><ModeLabel mode={j.mode} /></td>
+                    <td className="px-4 py-3 text-right tabular-nums">
+                      {j.total_pages}
+                      <div className="text-xs text-steel">{j.files.length} {j.files.length === 1 ? "file" : "files"}</div>
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums">{money(j.estimated_price)}</td>
+                    <td className="px-4 py-3"><Badge tone={STATUS_TONE[j.status]}>{STATUS_LABEL[j.status]}</Badge></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Phones: one card per job instead of a sideways-scrolling table. */}
+          <ul className="space-y-2 md:hidden">
+            {list.map((j) => (
+              <li key={j.id}>
+                <Link to={`/admin/jobs/${j.id}`} className="block rounded-2xl bg-ink/90 p-4 ring-1 ring-line transition hover:bg-navy-hover">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-lg font-bold tabular-nums text-gold">{j.code}</span>
+                    <Badge tone={STATUS_TONE[j.status]}>{STATUS_LABEL[j.status]}</Badge>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between gap-3 text-sm">
+                    <span className="truncate">{j.customer_name ?? <span className="text-steel">Walk-in</span>}</span>
+                    <span className="shrink-0 tabular-nums">{money(j.estimated_price)}</span>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between gap-3 text-xs text-steel">
+                    <span className="tabular-nums">{fmtDate(j.created_at)}, {fmtTime(j.created_at)}</span>
+                    <span className="flex items-center gap-1.5 tabular-nums">{j.total_pages} pages <span aria-hidden>·</span> <ModeLabel mode={j.mode} /></span>
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </div>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string | number }) {
+function ModeLabel({ mode }: { mode: Job["mode"] }) {
+  const Icon = mode === "self" ? Printer : Store;
   return (
-    <div className="rounded-xl bg-ink/80 px-3.5 py-2 ring-1 ring-line">
-      <div className="text-[11px] uppercase tracking-wider text-steel">{label}</div>
-      <div className="font-semibold tabular-nums">{value}</div>
+    <span className="inline-flex items-center gap-1.5">
+      <Icon aria-hidden className="h-3.5 w-3.5 text-steel" />
+      {mode === "self" ? "Self-print" : "Counter"}
+    </span>
+  );
+}
+
+function Stat({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string | number }) {
+  return (
+    <div className="rounded-2xl bg-ink/80 p-4 ring-1 ring-line">
+      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-steel">
+        <Icon aria-hidden className="h-4 w-4 text-gold" /> {label}
+      </div>
+      <div className="mt-1 truncate text-2xl font-bold tabular-nums">{value}</div>
     </div>
   );
 }

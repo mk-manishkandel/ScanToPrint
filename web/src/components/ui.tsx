@@ -13,7 +13,7 @@ type Size = "sm" | "md" | "lg";
 
 const VARIANT: Record<Variant, string> = {
   primary:
-    "bg-gradient-to-b from-gold-soft to-gold text-midnight shadow-[0_8px_24px_-12px_rgba(212,175,106,0.7)] hover:from-gold-soft hover:to-gold-soft active:brightness-95 disabled:from-navy-hover disabled:to-navy-hover disabled:text-steel disabled:shadow-none",
+    "bg-gold text-midnight hover:bg-gold-soft active:bg-gold disabled:bg-navy-hover disabled:text-steel",
   secondary:
     "bg-ink text-frost ring-1 ring-inset ring-line-strong hover:bg-navy-hover hover:ring-gold/40 active:bg-navy-hover disabled:text-steel disabled:ring-line",
   danger: "bg-danger/10 text-danger ring-1 ring-inset ring-danger/40 hover:bg-danger/20 active:bg-danger/25 disabled:opacity-50",
@@ -123,7 +123,7 @@ export function Field({ label, hint, error, children, className = "" }: { label:
 }
 
 const FIELD =
-  "w-full min-w-0 rounded-xl border border-line-strong bg-midnight/60 px-3.5 text-base text-frost outline-none transition placeholder:text-steel/70 hover:border-gold/40 focus:border-gold focus:ring-2 focus:ring-gold/25 aria-[invalid=true]:border-danger disabled:opacity-60";
+  "w-full min-w-0 rounded-xl border border-line-strong bg-midnight/60 px-3.5 text-base text-frost outline-none transition placeholder:text-steel/70 hover:border-gold/40 focus:border-gold aria-[invalid=true]:border-danger disabled:opacity-60";
 
 export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={`${FIELD} min-h-11 py-2.5 ${props.className ?? ""}`} />;
@@ -165,7 +165,7 @@ export function Segmented<T extends string>({
                 o.disabled
                   ? "cursor-not-allowed text-steel/50"
                   : on
-                    ? "cursor-pointer bg-gold text-midnight shadow-sm"
+                    ? "cursor-pointer bg-gold text-midnight"
                     : "cursor-pointer text-frost/80 hover:bg-navy-hover hover:text-frost"
               } has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-gold/70`}
             >
@@ -341,7 +341,7 @@ export function Sheet({
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-deep/80 backdrop-blur-sm animate-fade-in sm:items-center sm:p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-deep/85 animate-fade-in sm:items-center sm:p-4" onClick={onClose}>
       <div
         ref={ref}
         role="dialog"
@@ -373,8 +373,7 @@ export function Logo({ className = "h-10 w-10" }: { className?: string }) {
   return (
     <span
       aria-hidden="true"
-      className={`inline-grid shrink-0 place-items-center rounded-full ring-1 ring-gold/40 shadow-[0_0_28px_rgba(212,175,106,0.2)] ${className}`}
-      style={{ background: "radial-gradient(circle at 50% 35%, #1E2F52, #0B1426 75%)" }}
+      className={`inline-grid shrink-0 place-items-center rounded-full ring-1 ring-gold/40 bg-ink ${className}`}
     >
       <svg viewBox="0 0 24 24" className="h-1/2 w-1/2 text-gold" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M7 9V3h10v6" />

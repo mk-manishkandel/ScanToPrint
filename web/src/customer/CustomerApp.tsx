@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle, ArrowRight, Ban, Camera, CheckCircle2, ChevronRight, Clock, Eye, FileUp, Hourglass, PackageCheck,
-  Plus, Printer, RotateCcw, Send, ShieldCheck, Store, Trash2, Wallet,
+  Plus, Printer, RotateCcw, Send, ShieldCheck, Store, Trash2, Wallet, XCircle,
 } from "lucide-react";
 import {
   api, describeRequest, formatBytes, liveEvents, STATUS_LABEL, STATUS_TONE,
@@ -109,7 +109,7 @@ export default function CustomerApp() {
           onJob={setJob}
         />
       ) : (
-        <StatusStep job={job} currency={shop?.currency ?? ""} onNew={startOver} />
+        <StatusStep job={job} token={saved!.token} currency={shop?.currency ?? ""} onNew={startOver} onJob={setJob} />
       )}
 
       <p className="mt-10 flex items-center justify-center gap-1.5 text-center text-xs text-steel">
@@ -210,7 +210,7 @@ function UploadStep({
           onClick={() => fileInput.current?.click()}
           className="group flex w-full cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed border-gold/45 bg-ink/50 px-4 py-8 text-center transition hover:border-gold hover:bg-navy-hover active:bg-navy-hover disabled:cursor-wait disabled:opacity-70"
         >
-          <span className="grid h-14 w-14 place-items-center rounded-2xl bg-gold text-midnight shadow-[0_10px_30px_-10px_rgba(212,175,106,0.8)] transition group-hover:scale-105">
+          <span className="grid h-14 w-14 place-items-center rounded-2xl bg-gold text-midnight transition group-hover:scale-105">
             {files.length ? <Plus aria-hidden className="h-7 w-7" /> : <FileUp aria-hidden className="h-7 w-7" />}
           </span>
           <span className="mt-3 text-lg font-semibold">{files.length ? "Add more files" : "Choose files to print"}</span>
@@ -228,7 +228,7 @@ function UploadStep({
             <span className="tabular-nums text-gold">{progress}%</span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-midnight" role="progressbar" aria-valuenow={progress ?? 0} aria-valuemin={0} aria-valuemax={100}>
-            <div className="h-full rounded-full bg-gradient-to-r from-gold to-gold-soft transition-[width] duration-300" style={{ width: `${progress}%` }} />
+            <div className="h-full rounded-full bg-gold transition-[width] duration-300" style={{ width: `${progress}%` }} />
           </div>
         </Card>
       )}
@@ -339,7 +339,7 @@ function ChoiceCard({
       onClick={onClick}
       disabled={disabled}
       className={`group flex w-full cursor-pointer items-center gap-4 rounded-3xl p-4 text-left ring-1 transition active:brightness-95 disabled:cursor-not-allowed disabled:opacity-50 ${
-        primary ? "bg-gradient-to-br from-navy-hover to-ink ring-gold/50 hover:ring-gold" : "bg-ink ring-line hover:ring-line-strong hover:bg-navy-hover"
+        primary ? "bg-navy-hover ring-gold/50 hover:ring-gold" : "bg-ink ring-line hover:ring-line-strong hover:bg-navy-hover"
       }`}
     >
       <span className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl ${primary ? "bg-gold text-midnight" : "bg-midnight text-gold ring-1 ring-gold/30"}`}>
@@ -491,7 +491,29 @@ function SelfPrintSheet({ job, token, onClose, onJob }: { job: Job; token: strin
 
 /* ================================================================== status */
 
-function StatusStep({ job, currency, onNew }: { job: Job; currency: string; onNew: () => void }) {
+function StatusStep({
+  job, token, currency, onNew, onJob,
+}: { job: Job; token: string; currency: string; onNew: () => void; onJob: (j: Job) => void }) {
+  const [confirming, setConfirming] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  // Same rule as the server: only while nothing has started printing.
+  const canCancel =
+    ["submitted", "queued"].includes(job.status) && !(job.runs ?? []).some((r) => r.status === "printing" || r.status === "done");
+
+  async function cancel() {
+    setCancelling(true);
+    setCancelError(null);
+    try {
+      onJob(await api.post<Job>(`/api/jobs/${job.id}/cancel`, {}, { "X-Job-Token": token }));
+      setConfirming(false);
+    } catch (e) {
+      setCancelError((e as Error).message);
+    } finally {
+      setCancelling(false);
+    }
+  }
+
   const steps: [string, string, typeof Send][] =
     job.mode === "self"
       ? [["queued", "Queued", Clock], ["printing", "Printing", Printer], ["done", "Printed. Collect at the printer", PackageCheck]]
@@ -505,9 +527,8 @@ function StatusStep({ job, currency, onNew }: { job: Job; currency: string; onNe
     <div className="space-y-5">
       <section
         aria-label="Your job number"
-        className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-navy-hover via-ink to-midnight p-6 text-center ring-1 ring-gold/40 animate-pop"
+        className="relative overflow-hidden rounded-3xl bg-ink p-6 text-center ring-1 ring-gold/40 animate-pop"
       >
-        <div aria-hidden className="pointer-events-none absolute -top-16 left-1/2 h-40 w-72 -translate-x-1/2 rounded-full bg-gold/15 blur-3xl" />
         <div className="relative text-xs font-semibold uppercase tracking-[0.2em] text-steel">Your job number</div>
         <div className="relative my-2 text-6xl font-bold tracking-wider tabular-nums text-gold">{job.code}</div>
         <div className="relative text-sm text-frost/80">Show this at the counter</div>
@@ -531,7 +552,10 @@ function StatusStep({ job, currency, onNew }: { job: Job; currency: string; onNe
         <Card>
           <div className="flex items-center gap-3">
             <Ban aria-hidden className="h-5 w-5 text-steel" />
-            <div className="font-semibold">This job was cancelled by the shop.</div>
+            <div>
+              <div className="font-semibold">This job was cancelled</div>
+              <div className="mt-0.5 text-sm text-steel">Nothing will be printed.</div>
+            </div>
           </div>
         </Card>
       ) : (
@@ -548,8 +572,12 @@ function StatusStep({ job, currency, onNew }: { job: Job; currency: string; onNe
                   )}
                   <span
                     className={`grid h-10 w-10 shrink-0 place-items-center rounded-full transition ${
-                      done ? "bg-gold text-midnight" : "bg-midnight text-steel ring-1 ring-line"
-                    } ${current && !["ready", "done"].includes(key) ? "animate-glow" : ""}`}
+                      current && !["ready", "done"].includes(key)
+                        ? "bg-midnight text-gold ring-2 ring-gold"
+                        : done
+                          ? "bg-gold text-midnight"
+                          : "bg-midnight text-steel ring-1 ring-line"
+                    }`}
                   >
                     {done && !current ? <CheckCircle2 aria-hidden className="h-5 w-5" /> : <Icon aria-hidden className="h-5 w-5" />}
                   </span>
@@ -591,7 +619,25 @@ function StatusStep({ job, currency, onNew }: { job: Job; currency: string; onNe
         )}
         {job.notes && <div className="border-t border-line pt-3 text-frost/80">“{job.notes}”</div>}
       </Card>
+      {canCancel && (
+        <Button variant="danger" icon={XCircle} className="w-full" onClick={() => setConfirming(true)}>Cancel this print</Button>
+      )}
       <Button variant="secondary" icon={RotateCcw} className="w-full" onClick={onNew}>Print something else</Button>
+      {confirming && (
+        <Sheet
+          title={`Cancel job ${job.code}?`}
+          subtitle="It hasn't been printed yet. The shop won't print it."
+          onClose={() => setConfirming(false)}
+          footer={
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="secondary" onClick={() => setConfirming(false)}>Keep it</Button>
+              <Button variant="danger" icon={XCircle} loading={cancelling} onClick={cancel}>Yes, cancel</Button>
+            </div>
+          }
+        >
+          <ErrorText error={cancelError} />
+        </Sheet>
+      )}
     </div>
   );
 }

@@ -164,6 +164,17 @@ async fn process(st: &AppState, run_id: i64) -> anyhow::Result<()> {
     if run.status != "queued" {
         return Ok(());
     }
+    // Claim the run atomically: a customer cancel between the read above and here wins.
+    let claimed = sqlx::query(
+        "UPDATE print_runs SET status = 'printing', updated_at = ? WHERE id = ? AND status = 'queued'",
+    )
+    .bind(crate::db::now())
+    .bind(run_id)
+    .execute(&st.db)
+    .await?;
+    if claimed.rows_affected() == 0 {
+        return Ok(());
+    }
     set_run(st, run_id, run.job_id, "printing", None).await?;
     jobs_util::set_status(&st.db, run.job_id, "printing").await?;
     st.emit(Event::JobUpdated {

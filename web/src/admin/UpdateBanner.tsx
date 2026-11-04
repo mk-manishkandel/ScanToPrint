@@ -27,7 +27,7 @@ export default function UpdateBanner({ isOwner }: { isOwner: boolean }) {
   const working = info.state === "downloading" || info.state === "installing";
 
   return (
-    <div role="status" className="flex flex-wrap items-center gap-3 border-b border-gold/30 bg-gradient-to-r from-gold/20 via-gold/10 to-transparent px-4 py-2.5 text-sm sm:px-6 print:hidden">
+    <div role="status" className="flex flex-wrap items-center gap-3 border-b border-gold/30 bg-ink px-4 py-2.5 text-sm sm:px-6 print:hidden">
       {working ? (
         <span className="inline-flex items-center gap-2">
           <Loader2 aria-hidden className="h-4 w-4 animate-spin text-gold" /> Installing ScanToPrint {info.available}. The app will restart in a moment.

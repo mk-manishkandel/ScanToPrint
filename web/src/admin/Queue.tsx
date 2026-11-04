@@ -85,7 +85,7 @@ export default function Queue() {
         title="Print queue"
         description={
           <span className="inline-flex items-center gap-1.5">
-            <span aria-hidden className="h-2 w-2 rounded-full bg-gold animate-glow" /> Live · new jobs play a sound
+            <span aria-hidden className="h-2 w-2 rounded-full bg-gold" /> Live · new jobs play a sound
           </span>
         }
       />
@@ -142,7 +142,7 @@ function JobCard({ job: j, fresh, onSeen, setStatus }: { job: Job; fresh: boolea
       onMouseEnter={onSeen}
       onFocus={onSeen}
       aria-label={`Job ${j.code}`}
-      className={`flex flex-col rounded-3xl bg-ink/90 p-5 ring-1 transition animate-rise ${fresh ? "ring-2 ring-gold animate-glow" : "ring-line hover:ring-line-strong"}`}
+      className={`flex flex-col rounded-3xl bg-ink/90 p-5 ring-1 transition animate-rise ${fresh ? "ring-2 ring-gold" : "ring-line hover:ring-line-strong"}`}
     >
       <header className="flex items-start gap-3">
         <div className="min-w-0 flex-1">

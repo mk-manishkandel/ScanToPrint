@@ -839,3 +839,87 @@ async fn submit_options_respect_what_the_shop_can_print() {
     .await;
     assert_eq!(r.status, StatusCode::OK);
 }
+
+#[tokio::test]
+async fn customer_can_cancel_until_printing_starts() {
+    let (app, dir) = test_app().await;
+    let owner = setup_owner(&app).await;
+    let send = |id: i64, token: &str| {
+        let app = app.clone();
+        let token = token.to_string();
+        async move {
+            call(
+                &app,
+                "POST",
+                &format!("/api/jobs/{id}/submit?t={token}"),
+                Some(json!({})),
+                None,
+            )
+            .await
+        }
+    };
+    let cancel = |id: i64, token: &str| {
+        let app = app.clone();
+        let token = token.to_string();
+        async move {
+            call(
+                &app,
+                "POST",
+                &format!("/api/jobs/{id}/cancel?t={token}"),
+                None,
+                None,
+            )
+            .await
+        }
+    };
+
+    // Waiting for staff → customer can cancel; staff see it as cancelled.
+    let (id, token, _) = new_job(&app).await;
+    upload(&app, id, &token, &[("a.pdf", sample_pdf(dir.path(), "a"))]).await;
+    wait_converted(&app, id, &token).await;
+    assert_eq!(send(id, &token).await.status, StatusCode::OK);
+    let (other, other_token, _) = new_job(&app).await;
+    assert_eq!(cancel(id, &other_token).await.status, StatusCode::NOT_FOUND);
+    let r = cancel(id, &token).await;
+    assert_eq!(r.status, StatusCode::OK, "{:?}", r.json);
+    assert_eq!(r.json["status"], "cancelled");
+    let q = call(
+        &app,
+        "GET",
+        "/api/admin/jobs?view=active",
+        None,
+        Some(&owner),
+    )
+    .await;
+    assert!(q.json.as_array().unwrap().iter().all(|j| j["id"] != id));
+    // A second cancel changes nothing.
+    assert_eq!(cancel(id, &token).await.status, StatusCode::CONFLICT);
+
+    // Once staff have printed it (ready), the customer can't cancel.
+    upload(
+        &app,
+        other,
+        &other_token,
+        &[("b.pdf", sample_pdf(dir.path(), "b"))],
+    )
+    .await;
+    wait_converted(&app, other, &other_token).await;
+    send(other, &other_token).await;
+    let r = call(
+        &app,
+        "PATCH",
+        &format!("/api/admin/jobs/{other}"),
+        Some(json!({"status":"ready"})),
+        Some(&owner),
+    )
+    .await;
+    assert_eq!(r.status, StatusCode::OK);
+    assert_eq!(
+        cancel(other, &other_token).await.status,
+        StatusCode::CONFLICT
+    );
+    assert_eq!(
+        get_job_as(&app, other, &other_token).await.json["status"],
+        "ready"
+    );
+}

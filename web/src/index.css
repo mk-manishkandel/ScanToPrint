@@ -16,10 +16,9 @@
   --color-steel: #8a94a8; /* secondary text, labels, captions */
   --color-gold: #d4af6a; /* accent: buttons, links, highlights, logo */
   --color-gold-soft: #e6cc97; /* gold on hover */
-  --color-cobalt: #365496; /* soft background glows only, never text */
+  --color-cobalt: #365496; /* "info" badge fill only, never text */
   --color-danger: #e0796b; /* errors and invalid fields */
   --color-navy-hover: #1c2c4b; /* hover colour for navy cards */
-  --color-orb: #1e2f52; /* centre of logo-orb gradient */
   --color-line: rgba(238, 240, 245, 0.12); /* thin dividers and borders */
   --color-line-strong: rgba(238, 240, 245, 0.24); /* stronger and hovered borders */
 
@@ -29,7 +28,6 @@
   --animate-rise: rise 280ms var(--ease-out-soft) both;
   --animate-sheet-up: sheet-up 300ms var(--ease-out-soft) both;
   --animate-pop: pop 260ms var(--ease-out-soft) both;
-  --animate-glow: glow 2.4s ease-in-out infinite;
 
   @keyframes fade-in {
     from {
@@ -54,15 +52,6 @@
       transform: scale(0.96);
     }
   }
-  @keyframes glow {
-    0%,
-    100% {
-      box-shadow: 0 0 0 0 rgba(212, 175, 106, 0);
-    }
-    50% {
-      box-shadow: 0 0 0 6px rgba(212, 175, 106, 0.18);
-    }
-  }
 }
 
 :root {
@@ -78,10 +67,6 @@ body,
 
 body {
   background-color: var(--color-midnight);
-  background-image:
-    radial-gradient(64rem 32rem at 50% -12rem, rgba(54, 84, 150, 0.32), transparent 70%),
-    radial-gradient(40rem 24rem at 100% 0%, rgba(212, 175, 106, 0.05), transparent 70%);
-  background-repeat: no-repeat;
   color: var(--color-frost);
   font-family: var(--font-sans);
   font-feature-settings: "ss01", "cv11";
@@ -92,10 +77,23 @@ body {
   background: rgba(212, 175, 106, 0.35);
 }
 
-/* Visible keyboard focus everywhere (never removed without a replacement). */
+/* Visible keyboard focus everywhere (never removed without a replacement).
+   Text fields show focus with their own gold border instead (see FIELD in ui.tsx),
+   so they never get a second outline around the border. */
 :focus-visible {
   outline: 2px solid rgba(212, 175, 106, 0.7);
   outline-offset: 2px;
+}
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+}
+/* Browser autofill paints its own inset fill/border; keep the field's look. */
+input:-webkit-autofill {
+  -webkit-text-fill-color: var(--color-frost);
+  -webkit-box-shadow: 0 0 0 1000px var(--color-midnight) inset;
+  caret-color: var(--color-frost);
 }
 
 @media (prefers-reduced-motion: reduce) {
