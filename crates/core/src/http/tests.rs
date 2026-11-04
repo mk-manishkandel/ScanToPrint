@@ -923,3 +923,14 @@ async fn customer_can_cancel_until_printing_starts() {
         "ready"
     );
 }
+
+#[tokio::test]
+async fn update_check_needs_login_and_the_desktop_app() {
+    let (app, _dir) = test_app().await;
+    let owner = setup_owner(&app).await;
+    let r = call(&app, "POST", "/api/admin/update/check", None, None).await;
+    assert_eq!(r.status, StatusCode::UNAUTHORIZED);
+    // The test server has no desktop shell, so there's nothing to check with.
+    let r = call(&app, "POST", "/api/admin/update/check", None, Some(&owner)).await;
+    assert_eq!(r.status, StatusCode::BAD_REQUEST);
+}

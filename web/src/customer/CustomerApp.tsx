@@ -116,6 +116,7 @@ export default function CustomerApp() {
         <ShieldCheck aria-hidden className="h-3.5 w-3.5 text-gold" />
         Your files go only to this shop's computer and are deleted automatically.
       </p>
+      <p className="mt-2 text-center text-[11px] tabular-nums text-steel/70">ScanToPrint {__APP_VERSION__}</p>
     </div>
   );
 }

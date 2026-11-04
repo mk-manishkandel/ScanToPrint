@@ -41,6 +41,7 @@ pub fn routes() -> Router<AppState> {
         .route("/api/admin/qr.svg", get(qr_svg))
         .route("/api/admin/update", get(update_info))
         .route("/api/admin/update/install", post(update_install))
+        .route("/api/admin/update/check", post(update_check))
 }
 
 #[derive(Deserialize)]
@@ -488,6 +489,19 @@ async fn qr_svg(_: Staff, Query(q): Query<QrQuery>) -> AppResult<Response> {
 
 async fn update_info(State(st): State<AppState>, _: Staff) -> Json<crate::update::UpdateInfo> {
     Json(st.config.updates.info())
+}
+
+/// Staff ask the shell to look for a new release now instead of waiting up to 6 hours.
+async fn update_check(State(st): State<AppState>, _: Staff) -> AppResult<Json<Value>> {
+    let info = st.config.updates.info();
+    if !info.supported {
+        return Err(bad("Updates only work in the installed Windows app"));
+    }
+    if matches!(info.state.as_str(), "downloading" | "installing") {
+        return Err(bad("An update is already being installed"));
+    }
+    st.config.updates.request_check();
+    Ok(Json(json!({ "ok": true })))
 }
 
 /// Owner asks to install a downloaded-ready update. Refused while anything is in progress.

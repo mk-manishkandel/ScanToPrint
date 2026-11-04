@@ -1,5 +1,5 @@
-//! Auto-update: checks GitHub Releases (signed with the ScanToPrint updater key) at start-up
-//! and every 6 hours. Installation only happens when the owner clicks "Install" in the dashboard
+//! Auto-update: checks GitHub Releases (signed with the ScanToPrint updater key) at start-up,
+//! every 6 hours, and whenever the owner clicks "Check for updates". Installation only happens when the owner clicks "Install" in the dashboard
 //! (the server refuses while anything is printing).
 
 use std::sync::Arc;
@@ -24,6 +24,8 @@ pub fn start(app: AppHandle, bridge: Arc<UpdateBridge>) {
             }
             tokio::select! {
                 _ = tokio::time::sleep(CHECK_EVERY) => {}
+                // Manual check: forget what we found, so a newer release replaces it.
+                _ = bridge.check_requested() => pending = None,
                 _ = bridge.install_requested() => {
                     if let Some(update) = pending.take() {
                         install(&app, &bridge, update).await;

@@ -12,7 +12,7 @@ import JobDetail from "./JobDetail";
 import Printers from "./Printers";
 import History from "./History";
 import QrPoster from "./QrPoster";
-import UpdateBanner from "./UpdateBanner";
+import UpdateBanner, { VersionInfo } from "./UpdateBanner";
 
 interface AuthCtx {
   user: User;
@@ -129,13 +129,17 @@ function Shell() {
           </div>
           <IconButton icon={LogOut} label="Log out" onClick={logout} />
         </div>
+        <VersionInfo className="px-5 pb-4" />
       </aside>
 
       {/* Phone / small-screen top bar */}
       <header className="sticky top-0 z-30 border-b border-line bg-deep/90 backdrop-blur print:hidden md:hidden">
         <div className="flex items-center gap-3 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2">
           <Logo className="h-9 w-9" />
-          <div className="min-w-0 flex-1 truncate font-bold">ScanToPrint</div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate font-bold">ScanToPrint</div>
+            <div className="text-[11px] tabular-nums text-steel">Version {__APP_VERSION__}</div>
+          </div>
           <IconButton icon={LogOut} label="Log out" onClick={logout} />
         </div>
         <nav aria-label="Main" className="flex gap-1 overflow-x-auto px-3 pb-2 [scrollbar-width:none]">

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { VersionInfo } from "./UpdateBanner";
 import { CheckCircle2, Coins, Save, Settings as SettingsIcon, Store } from "lucide-react";
 import { api, type Settings } from "../api";
 import { Button, Card, ErrorText, Field, Input, PageHeader, Spinner } from "../components/ui";
@@ -74,6 +75,10 @@ export default function SettingsPage() {
             <Input type="number" inputMode="decimal" step="0.5" min={0} value={s.price_color_duplex} onChange={num("price_color_duplex")} />
           </Field>
         </div>
+      </Card>
+      <Card className="md:hidden">
+        <h2 className="mb-2 font-semibold">App version</h2>
+        <VersionInfo className="!text-sm" />
       </Card>
       <ErrorText error={error} />
       <div className="sticky bottom-4 flex items-center gap-3 rounded-2xl bg-deep/90 p-3 ring-1 ring-line backdrop-blur">

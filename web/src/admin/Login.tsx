@@ -61,6 +61,7 @@ export function AuthLayout({ title, subtitle, children, wide }: { title: string;
           <p className="mt-1 text-sm text-steel">{subtitle}</p>
         </div>
         <div className="rounded-3xl bg-ink/90 p-6 shadow-2xl shadow-black/40 ring-1 ring-line">{children}</div>
+        <p className="mt-4 text-center text-xs tabular-nums text-steel">ScanToPrint version {__APP_VERSION__}</p>
       </div>
     </div>
   );

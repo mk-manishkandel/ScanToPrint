@@ -22,6 +22,7 @@ pub struct UpdateInfo {
 pub struct UpdateBridge {
     info: Mutex<UpdateInfo>,
     install: Notify,
+    check: Notify,
 }
 
 impl UpdateBridge {
@@ -37,6 +38,7 @@ impl UpdateBridge {
                 last_checked: None,
             }),
             install: Notify::new(),
+            check: Notify::new(),
         }
     }
 
@@ -56,5 +58,36 @@ impl UpdateBridge {
     /// Awaited by the shell's updater loop.
     pub async fn install_requested(&self) {
         self.install.notified().await;
+    }
+
+    /// Called by the dashboard's "Check for updates" button.
+    pub fn request_check(&self) {
+        self.update(|i| i.state = "checking".into());
+        self.check.notify_one();
+    }
+
+    /// Awaited by the shell's updater loop.
+    pub async fn check_requested(&self) {
+        self.check.notified().await;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn manual_check_wakes_the_updater_and_shows_checking() {
+        let bridge = std::sync::Arc::new(UpdateBridge::new(true));
+        let waiter = {
+            let b = bridge.clone();
+            tokio::spawn(async move { b.check_requested().await })
+        };
+        bridge.request_check();
+        assert_eq!(bridge.info().state, "checking");
+        tokio::time::timeout(std::time::Duration::from_secs(2), waiter)
+            .await
+            .expect("updater loop was not woken")
+            .unwrap();
     }
 }
