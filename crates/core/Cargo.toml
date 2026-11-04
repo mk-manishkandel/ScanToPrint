@@ -20,7 +20,7 @@ axum-extra = { version = "0.10", features = ["cookie"] }
 cookie = "0.18"
 chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
 hex = "0.4"
-if-addrs = "0.13"
+if-addrs = "0.15"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "bmp", "tiff", "webp"] }
 lopdf = "0.46"
 rand = "0.8"
