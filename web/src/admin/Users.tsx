@@ -29,9 +29,10 @@ export default function Users() {
   const initials = (n: string) => n.split(/\s+/).map((p) => p[0]).join("").slice(0, 2).toUpperCase();
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="space-y-6">
       <PageHeader icon={UsersIcon} title="Staff accounts" description="Owners can change settings and printers. Staff can only handle print jobs." />
       <ErrorText error={error} />
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,32rem)]">
       <Card className="!p-2">
         <ul className="divide-y divide-line">
           {users.map((u) => (
@@ -107,6 +108,7 @@ export default function Users() {
           </Button>
         </form>
       </Card>
+      </div>
     </div>
   );
 }

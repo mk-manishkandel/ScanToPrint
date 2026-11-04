@@ -47,7 +47,7 @@ export default function Printers() {
   }
 
   return (
-    <div className="max-w-4xl space-y-6">
+    <div className="space-y-6">
       <PageHeader
         icon={Printer}
         title="Printers"
@@ -61,6 +61,7 @@ export default function Printers() {
           Install your printer in Windows first (Settings → Bluetooth & devices → Printers), then scan.
         </EmptyState>
       )}
+      <div className="grid items-start gap-6 2xl:grid-cols-2">
       {printers?.map((p) => (
         <Card key={p.id} as="section" className={`space-y-4 animate-rise ${p.is_active ? "" : "opacity-80"}`}>
           <div className="flex flex-wrap items-center gap-3">
@@ -71,7 +72,7 @@ export default function Printers() {
               <label className="sr-only" htmlFor={`pn-${p.id}`}>Display name</label>
               <Input
                 id={`pn-${p.id}`}
-                className="max-w-sm !min-h-10 font-semibold"
+                className="!min-h-10 font-semibold"
                 defaultValue={p.display_name}
                 onBlur={(e) => e.target.value !== p.display_name && patch(p.id, { display_name: e.target.value })}
               />
@@ -120,6 +121,7 @@ export default function Printers() {
           </fieldset>
         </Card>
       ))}
+      </div>
     </div>
   );
 }

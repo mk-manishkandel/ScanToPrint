@@ -124,7 +124,7 @@ export default function Queue() {
             <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-steel">
               <Icon aria-hidden className="h-4 w-4" /> {title} <span className="tabular-nums text-frost/60">({g.length})</span>
             </h2>
-            <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+            <div className="grid items-start gap-4 lg:grid-cols-2 2xl:grid-cols-3">
               {g.map((j) => (
                 <JobCard key={j.id} job={j} fresh={highlight.has(j.id)} onSeen={() => seen(j.id)} setStatus={setStatus} />
               ))}

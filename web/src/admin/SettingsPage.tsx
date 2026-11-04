@@ -37,8 +37,9 @@ export default function SettingsPage() {
   }
 
   return (
-    <form onSubmit={save} className="max-w-3xl space-y-6">
+    <form onSubmit={save} className="space-y-6">
       <PageHeader icon={SettingsIcon} title="Settings" description="Your shop name, file limits and price list." />
+      <div className="grid items-start gap-6 xl:grid-cols-2">
       <Card as="section" className="space-y-5">
         <h2 className="flex items-center gap-2 font-semibold"><Store aria-hidden className="h-4 w-4 text-gold" /> Shop</h2>
         <Field label="Shop name" hint="Customers see this when they scan the QR code.">
@@ -76,6 +77,7 @@ export default function SettingsPage() {
           </Field>
         </div>
       </Card>
+      </div>
       <Card className="md:hidden">
         <h2 className="mb-2 font-semibold">App version</h2>
         <VersionInfo className="!text-sm" />

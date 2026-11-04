@@ -42,20 +42,20 @@ export default function QrPoster() {
       </div>
       <div className="print:hidden"><ErrorText error={error} /></div>
 
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] print:block">
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] 2xl:grid-cols-[minmax(0,1fr)_26rem] print:block">
         {/* The poster: what gets printed. */}
         {url ? (
           <section
             aria-label="Poster preview"
-            className="mx-auto w-full max-w-lg rounded-3xl bg-ink px-6 py-10 text-center ring-1 ring-line animate-fade-in sm:px-10 print:max-w-none print:rounded-none print:bg-white print:py-16 print:text-black print:ring-0"
+            className="mx-auto w-full max-w-lg rounded-3xl 2xl:max-w-2xl 2xl:py-14 bg-ink px-6 py-10 text-center ring-1 ring-line animate-fade-in sm:px-10 print:max-w-none print:rounded-none print:bg-white print:py-16 print:text-black print:ring-0"
           >
             <div className="text-xs font-semibold uppercase tracking-[0.3em] text-gold print:text-black">Scan · Upload · Print</div>
-            <div className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">{shop?.shop_name}</div>
+            <div className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl 2xl:text-5xl">{shop?.shop_name}</div>
             <div className="mt-2 text-base text-frost/80 sm:text-lg print:text-black">Print your documents from your phone</div>
             <div className="mx-auto my-8 w-fit rounded-2xl bg-white p-4 ring-2 ring-gold print:ring-black">
-              <img className="block w-56 sm:w-64 print:w-80" alt={`QR code for ${url}`} src={`/api/admin/qr.svg?url=${encodeURIComponent(url)}`} />
+              <img className="block w-56 sm:w-64 2xl:w-80 print:w-80" alt={`QR code for ${url}`} src={`/api/admin/qr.svg?url=${encodeURIComponent(url)}`} />
             </div>
-            <ol className="mx-auto grid max-w-md grid-cols-3 gap-2 text-sm">
+            <ol className="mx-auto grid max-w-md grid-cols-3 gap-2 text-sm 2xl:max-w-lg 2xl:text-base">
               {([[Wifi, "Join our Wi-Fi"], [ScanLine, "Scan the code"], [Upload, "Upload & print"]] as const).map(([Icon, t], i) => (
                 <li key={t} className="flex flex-col items-center gap-2">
                   <span className="grid h-11 w-11 place-items-center rounded-full bg-midnight text-gold ring-1 ring-gold/50 print:bg-white print:text-black print:ring-2 print:ring-black">

@@ -78,6 +78,7 @@ export default function JobDetail() {
       </Card>
       <ErrorText error={error} />
 
+      <div className={`grid items-start gap-6 ${preview ? "xl:grid-cols-2" : ""}`}>
       <section aria-label="Files" className="space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-steel">Files ({job.files.length})</h2>
         <Card className="!p-2">
@@ -127,8 +128,9 @@ export default function JobDetail() {
         </Card>
       </section>
       {preview && (
-        <iframe title="File preview" src={`/api/admin/files/${preview}/pdf`} className="h-[75vh] w-full rounded-3xl bg-deep ring-1 ring-line animate-fade-in" />
+        <iframe title="File preview" src={`/api/admin/files/${preview}/pdf`} className="h-[75vh] w-full rounded-3xl bg-deep ring-1 ring-line animate-fade-in xl:sticky xl:top-6 xl:h-[calc(100dvh-3rem)]" />
       )}
+      </div>
 
       {!!job.runs?.length && (
         <section aria-label="Print history" className="space-y-3">

@@ -163,7 +163,7 @@ function Shell() {
 
       <div className="min-w-0 flex-1">
         <UpdateBanner isOwner={user.role === "owner"} />
-        <main className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-8 print:p-0">
+        <main className="p-4 sm:p-6 lg:p-8 print:p-0">
           <Routes>
             <Route index element={<Queue />} />
             <Route path="jobs/:id" element={<JobDetail />} />
