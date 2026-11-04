@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { KeyRound, Power, Trash2, UserPlus, Users as UsersIcon } from "lucide-react";
 import { api, type User } from "../api";
-import { Badge, Button, Card, ErrorText, Field, IconButton, Input, PageHeader } from "../components/ui";
+import { Badge, Button, Card, ErrorText, Field, IconButton, Input, PageHeader, Sheet } from "../components/ui";
 import { Select } from "../components/pickers";
 import { useAuth } from "./AdminApp";
 
@@ -11,6 +11,31 @@ export default function Users() {
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", username: "", password: "", role: "staff" });
   const [busy, setBusy] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const empty = { name: "", username: "", password: "", role: "staff" };
+  // Stable so the pop-up doesn't re-run its focus setup on every keystroke.
+  const closeAdd = useCallback(() => setAdding(false), []);
+  const openAdd = () => {
+    setForm(empty);
+    setFormError(null);
+    setAdding(true);
+  };
+
+  async function add(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setFormError(null);
+    try {
+      await api.post("/api/admin/users", form);
+      await load();
+      setAdding(false);
+    } catch (err) {
+      setFormError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const load = () => api.get<User[]>("/api/admin/users").then(setUsers, (e) => setError(e.message));
   useEffect(() => {
@@ -31,9 +56,13 @@ export default function Users() {
 
   return (
     <div className="space-y-6">
-      <PageHeader icon={UsersIcon} title="Staff accounts" description="Owners can change settings and printers. Staff can only handle print jobs." />
+      <PageHeader
+        icon={UsersIcon}
+        title="Staff accounts"
+        description="Owners can change settings and printers. Staff can only handle print jobs."
+        actions={<Button icon={UserPlus} onClick={openAdd}>Add staff</Button>}
+      />
       <ErrorText error={error} />
-      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,32rem)]">
       <Card className="!p-2">
         <ul className="divide-y divide-line">
           {users.map((u) => (
@@ -74,31 +103,33 @@ export default function Users() {
           ))}
         </ul>
       </Card>
-      <Card as="section">
-        <form
-          className="space-y-5"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setBusy(true);
-            run(async () => {
-              await api.post("/api/admin/users", form);
-              setForm({ name: "", username: "", password: "", role: "staff" });
-            }).finally(() => setBusy(false));
-          }}
+      {adding && (
+        <Sheet
+          title="Add a staff member"
+          subtitle={<>Fields marked <span className="text-danger">*</span> are required.</>}
+          onClose={closeAdd}
+          footer={
+            <div className="flex justify-end gap-3">
+              <Button variant="secondary" onClick={closeAdd}>Cancel</Button>
+              <Button type="submit" form="add-staff" icon={UserPlus} loading={busy} disabled={!form.name.trim() || !form.username.trim() || form.password.length < 8}>
+                Add account
+              </Button>
+            </div>
+          }
         >
-          <h2 className="flex items-center gap-2 font-semibold"><UserPlus aria-hidden className="h-4 w-4 text-gold" /> Add a staff member</h2>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Name">
-              <Input autoComplete="off" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <form id="add-staff" className="space-y-4" onSubmit={add}>
+            <Field label="Name" required>
+              <Input required autoComplete="off" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             </Field>
-            <Field label="Username" hint="Letters, numbers, dots or underscores.">
-              <Input autoComplete="off" autoCapitalize="none" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} />
+            <Field label="Username" required hint="Letters, numbers, dots or underscores. Used to sign in.">
+              <Input required autoComplete="off" autoCapitalize="none" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} />
             </Field>
-            <Field label="Password" hint="At least 8 characters.">
-              <Input type="password" autoComplete="new-password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+            <Field label="Password" required hint="At least 8 characters.">
+              <Input required minLength={8} type="password" autoComplete="new-password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
             </Field>
-            <Field label="Role">
+            <Field label="Role" required>
               <Select
+                label="Role"
                 value={form.role}
                 onChange={(role) => setForm({ ...form, role })}
                 options={[
@@ -107,13 +138,10 @@ export default function Users() {
                 ]}
               />
             </Field>
-          </div>
-          <Button type="submit" icon={UserPlus} loading={busy} disabled={!form.name || !form.username || form.password.length < 8}>
-            Add account
-          </Button>
-        </form>
-      </Card>
-      </div>
+            <ErrorText error={formError} />
+          </form>
+        </Sheet>
+      )}
     </div>
   );
 }

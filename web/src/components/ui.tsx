@@ -106,10 +106,14 @@ export function EmptyState({ icon: Icon, title, children, action }: { icon: Luci
 
 /* ------------------------------------------------------------------ forms */
 
-export function Field({ label, hint, error, children, className = "" }: { label: string; hint?: ReactNode; error?: string | null; children: ReactNode; className?: string }) {
+/** Form field with a label. `required` adds a red * (screen readers hear "required"). */
+export function Field({ label, hint, error, required, children, className = "" }: { label: string; hint?: ReactNode; error?: string | null; required?: boolean; children: ReactNode; className?: string }) {
   return (
     <label className={`block ${className}`}>
-      <span className="mb-1.5 block text-sm font-medium text-frost/90">{label}</span>
+      <span className="mb-1.5 block text-sm font-medium text-frost/90">
+        {label}
+        {required && <><span aria-hidden className="ml-0.5 text-danger">*</span><span className="sr-only"> (required)</span></>}
+      </span>
       {children}
       {error ? (
         <span role="alert" className="mt-1.5 flex items-center gap-1.5 text-xs text-danger">
