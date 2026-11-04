@@ -24,7 +24,7 @@ if-addrs = "0.13"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "bmp", "tiff", "webp"] }
 lopdf = "0.46"
 rand = "0.8"
-sha2 = "0.10"
+sha2 = "0.11"
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite", "macros", "migrate", "chrono"] }
 axum = { version = "0.8", features = ["ws", "multipart"] }
 mime_guess = "2"
